@@ -66,6 +66,7 @@ b,strong{font-weight:600}
 .screen.on{display:block}
 .pad{padding:14px}
 .hint{font-size:12.5px;color:var(--ink3);line-height:1.55}
+.hint.warn{color:var(--exp);font-weight:600}
 h2.sec{font-family:'Archivo Narrow',sans-serif;font-size:11.5px;font-weight:700;letter-spacing:.14em;
   text-transform:uppercase;color:var(--ink3);margin:22px 14px 9px}
 h2.sec:first-child{margin-top:14px}
@@ -301,6 +302,7 @@ h2.sec:first-child{margin-top:14px}
 
     <h2 class="sec">Dados</h2>
     <div class="pad">
+      <p class="hint" id="backupHint" style="margin:0 0 12px"></p>
       <button class="btn gh" id="btnExport">Exportar backup (JSON)</button>
       <button class="btn gh" id="btnImport">Importar backup (JSON)</button>
       <input type="file" id="fileImport" accept="application/json" style="display:none">
@@ -681,9 +683,33 @@ function renderSettings(){
   $('#catIncList').innerHTML = inc.map(c=>`<div class="cfgrow" data-id="${c.id}">
     <span class="dot" style="background:${c.color}"></span><span class="nm">${c.name}</span></div>`).join('');
   $$('#catExpList .cfgrow, #catIncList .cfgrow').forEach(el=>el.onclick=()=>openCatModal(catById(el.dataset.id)));
+  renderBackupHint();
 }
 $('#addCatExp').onclick=()=>openCatModal(null,'expense');
 $('#addCatInc').onclick=()=>openCatModal(null,'income');
+
+function renderBackupHint(){
+  const el = $('#backupHint');
+  const last = localStorage.getItem('bolso_lastbackup');
+  if(!DB.transactions.length){
+    el.textContent = 'Assim que você adicionar lançamentos, vale exportar um backup de vez em quando.';
+    el.classList.remove('warn');
+    return;
+  }
+  if(!last){
+    el.textContent = '⚠ Você ainda não fez nenhum backup. Exporte um agora para não correr risco de perder seus lançamentos.';
+    el.classList.add('warn');
+    return;
+  }
+  const days = Math.floor((Date.now()-new Date(last).getTime())/86400000);
+  if(days>=14){
+    el.textContent = `⚠ Último backup há ${days} dias. Exporte um novo para manter seus dados seguros.`;
+    el.classList.add('warn');
+  } else {
+    el.textContent = days<=0 ? 'Último backup: hoje.' : days===1 ? 'Último backup: ontem.' : `Último backup: há ${days} dias.`;
+    el.classList.remove('warn');
+  }
+}
 
 $('#btnExport').onclick=()=>{
   const blob = new Blob([JSON.stringify(DB,null,2)], {type:'application/json'});
@@ -691,6 +717,8 @@ $('#btnExport').onclick=()=>{
   a.href = URL.createObjectURL(blob);
   a.download = 'bolso-backup-'+todayISO()+'.json';
   a.click();
+  localStorage.setItem('bolso_lastbackup', new Date().toISOString());
+  renderBackupHint();
 };
 $('#btnImport').onclick=()=>$('#fileImport').click();
 $('#fileImport').onchange=(e)=>{
@@ -848,6 +876,12 @@ render();
 
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+
+/* Pede ao navegador para não descartar os dados sob pressão de armazenamento
+   (sem isso, localStorage pode ser apagado automaticamente em pouco uso do dispositivo). */
+if('storage' in navigator && 'persist' in navigator.storage){
+  navigator.storage.persist().catch(()=>{});
 }
 </script>
 </body>
