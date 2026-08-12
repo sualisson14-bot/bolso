@@ -219,6 +219,7 @@ h2.sec:first-child{margin-top:14px}
   display:flex;align-items:center;gap:7px;font-size:12.5px;cursor:pointer;color:var(--ink2)}
 .catchip .dot{width:9px;height:9px;border-radius:50%}
 .catchip.on{border-color:var(--ink);background:var(--rule2);color:var(--ink);font-weight:600}
+.catchip.new{border-style:dashed;border-color:var(--accent);color:var(--accent)}
 .swatches{display:flex;flex-wrap:wrap;gap:9px}
 .swatch{width:30px;height:30px;border-radius:50%;cursor:pointer;border:2px solid transparent}
 .swatch.on{border-color:var(--ink)}
@@ -438,6 +439,7 @@ let editingTxCat = null;
 let editingCatId = null;
 let editingCatType = 'expense';
 let editingCatColor = PALETTE[0];
+let catModalReturnToTx = false;
 
 /* ---------------- tema ---------------- */
 function applyTheme(){
@@ -729,10 +731,21 @@ function renderTxCatGrid(){
   const cats = DB.categories.filter(c=>c.type===editingTxType);
   if(!editingTxCat || !cats.find(c=>c.id===editingTxCat)) editingTxCat = cats[0] ? cats[0].id : null;
   $('#txCatGrid').innerHTML = cats.map(c=>`<div class="catchip ${c.id===editingTxCat?'on':''}" data-id="${c.id}">
-    <span class="dot" style="background:${c.color}"></span>${c.name}</div>`).join('');
-  $$('#txCatGrid .catchip').forEach(el=>el.onclick=()=>{
-    editingTxCat = el.dataset.id;
-    $$('#txCatGrid .catchip').forEach(x=>x.classList.toggle('on', x===el));
+    <span class="dot" style="background:${c.color}"></span>${c.name}</div>`).join('')
+    + `<div class="catchip new" data-new="1">+ Nova</div>`;
+  $$('#txCatGrid .catchip').forEach(el=>{
+    if(el.dataset.new){
+      el.onclick=()=>{
+        closeSheet('ovTx');
+        catModalReturnToTx = true;
+        openCatModal(null, editingTxType);
+      };
+    } else {
+      el.onclick=()=>{
+        editingTxCat = el.dataset.id;
+        $$('#txCatGrid .catchip').forEach(x=>x.classList.toggle('on', x===el));
+      };
+    }
   });
 }
 $$('.seg [data-tt]').forEach(b=>b.onclick=()=>{
@@ -789,13 +802,21 @@ $('#catSave').onclick=()=>{
   const name = $('#catName').value.trim();
   if(!name){ alert('Informe um nome.'); return; }
   const budget = parseFloat($('#catBudget').dataset.value || '0');
+  let savedId = editingCatId;
   if(editingCatId){
     const c = catById(editingCatId);
     Object.assign(c, {name, color:editingCatColor, budget: c.type==='expense'?budget:undefined});
   } else {
-    DB.categories.push({id:uid(), name, color:editingCatColor, type:editingCatType, budget: editingCatType==='expense'?budget:undefined});
+    savedId = uid();
+    DB.categories.push({id:savedId, name, color:editingCatColor, type:editingCatType, budget: editingCatType==='expense'?budget:undefined});
   }
   saveDB(); closeSheet('ovCat'); render();
+  if(catModalReturnToTx){
+    catModalReturnToTx = false;
+    editingTxCat = savedId;
+    renderTxCatGrid();
+    openSheet('ovTx');
+  }
 };
 $('#catDelete').onclick=()=>{
   const inUse = DB.transactions.some(t=>t.categoryId===editingCatId);
@@ -809,8 +830,17 @@ $('#catDelete').onclick=()=>{
 /* ---------------- sheets ---------------- */
 function openSheet(id){ $('#'+id).classList.add('on'); }
 function closeSheet(id){ $('#'+id).classList.remove('on'); }
-$$('[data-close]').forEach(b=>b.onclick=()=>closeSheet(b.dataset.close));
-$$('.ov').forEach(ov=>ov.addEventListener('click', e=>{ if(e.target===ov) closeSheet(ov.id); }));
+function cancelCatModal(){
+  closeSheet('ovCat');
+  if(catModalReturnToTx){ catModalReturnToTx=false; openSheet('ovTx'); }
+}
+$$('[data-close]').forEach(b=>b.onclick=()=>{
+  if(b.dataset.close==='ovCat') cancelCatModal(); else closeSheet(b.dataset.close);
+});
+$$('.ov').forEach(ov=>ov.addEventListener('click', e=>{
+  if(e.target!==ov) return;
+  if(ov.id==='ovCat') cancelCatModal(); else closeSheet(ov.id);
+}));
 
 /* ---------------- start ---------------- */
 applyTheme();
