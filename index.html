@@ -213,8 +213,15 @@ h2.sec:first-child{margin-top:14px}
 .field{margin-bottom:14px}
 .field label{display:block;font-family:'Archivo Narrow',sans-serif;font-size:10.5px;font-weight:700;
   letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:7px}
-.field input[type=text],.field input[type=date],.field input[type=number]{
+.field input[type=text],.field input[type=date],.field input[type=number],.field input[type=email],.field input[type=password]{
   width:100%;padding:11px 12px;border:1px solid var(--rule);border-radius:8px;background:var(--paper);color:var(--ink)}
+.hidden{display:none !important}
+.authwrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--paper)}
+.authcard{width:100%;max-width:340px}
+.authcard h1{font-family:'Archivo Narrow',sans-serif;font-size:24px;font-weight:700;text-align:center;margin:0 0 6px;color:var(--ink)}
+.authcard>.hint{text-align:center;margin-bottom:24px}
+#authMsg{text-align:center;margin:-6px 0 14px;color:var(--exp)}
+#authForgot{margin-top:2px;font-size:11.5px}
 .catgrid{display:flex;flex-wrap:wrap;gap:8px}
 .catchip{border:1.4px solid var(--rule);background:var(--panel);padding:8px 12px;border-radius:20px;
   display:flex;align-items:center;gap:7px;font-size:12.5px;cursor:pointer;color:var(--ink2)}
@@ -234,7 +241,20 @@ h2.sec:first-child{margin-top:14px}
 </style>
 </head>
 <body>
-<div class="app">
+<div class="authwrap" id="authScreen">
+  <div class="authcard">
+    <h1>Bolso</h1>
+    <p class="hint">Seus lançamentos, sincronizados com segurança entre seus aparelhos.</p>
+    <div class="field"><label>E-mail</label><input type="email" id="authEmail" autocomplete="username"></div>
+    <div class="field"><label>Senha</label><input type="password" id="authPassword" autocomplete="current-password"></div>
+    <p class="hint" id="authMsg" style="display:none"></p>
+    <button class="btn pri" id="authSubmit">Entrar</button>
+    <button class="btn gh" id="authToggle">Criar uma conta</button>
+    <button class="btn gh" id="authForgot" style="border:none;color:var(--accent)">Esqueci minha senha</button>
+  </div>
+</div>
+
+<div class="app hidden" id="appRoot">
 
   <div class="top">
     <div style="flex:1">
@@ -292,6 +312,12 @@ h2.sec:first-child{margin-top:14px}
 
   <!-- ============ AJUSTES ============ -->
   <div class="screen" id="scr-set">
+    <h2 class="sec">Conta</h2>
+    <div class="pad">
+      <p class="hint" id="acctEmail" style="margin:0 0 12px"></p>
+      <button class="btn gh" id="btnLogout">Sair da conta</button>
+    </div>
+
     <h2 class="sec">Categorias de despesa</h2>
     <div id="catExpList"></div>
     <div class="addrow" id="addCatExp">+ Nova categoria de despesa</div>
@@ -308,7 +334,7 @@ h2.sec:first-child{margin-top:14px}
       <input type="file" id="fileImport" accept="application/json" style="display:none">
       <button class="btn danger" id="btnReset">Apagar todos os dados</button>
     </div>
-    <p class="hint" style="padding:0 14px 14px">Bolso v1 · Todos os dados ficam salvos apenas neste dispositivo.</p>
+    <p class="hint" style="padding:0 14px 14px">Bolso v2 · Seus dados ficam salvos na nuvem, associados à sua conta, e sincronizam entre seus aparelhos.</p>
   </div>
 
   <button class="fab" id="fab">+ Novo lançamento</button>
@@ -400,17 +426,21 @@ function defaultDB(){
   };
 }
 
-let DB = loadDB();
-function loadDB(){
+let DB = defaultDB();
+function readLegacyLocalDB(){
   try{
     const raw = localStorage.getItem('bolso_v1');
-    if(raw) return JSON.parse(raw);
+    if(raw){
+      const local = JSON.parse(raw);
+      if(local && ((local.transactions&&local.transactions.length) || (local.categories&&local.categories.length))) return local;
+    }
   }catch(e){}
-  const db = defaultDB();
-  localStorage.setItem('bolso_v1', JSON.stringify(db));
-  return db;
+  return null;
 }
-function saveDB(){ localStorage.setItem('bolso_v1', JSON.stringify(DB)); }
+function saveDB(){
+  if(!fb || !authUid) return;
+  fb.setDoc(fb.doc(fb.dbFs,'bolso_users',authUid), DB).catch(()=>{});
+}
 
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
 
@@ -442,11 +472,19 @@ let editingCatId = null;
 let editingCatType = 'expense';
 let editingCatColor = PALETTE[0];
 let catModalReturnToTx = false;
+let fb = null;
+let authUid = null;
+let authEmail = null;
+let authMode = 'login';
+let unsubscribeSnapshot = null;
 
 /* ---------------- tema ---------------- */
+document.documentElement.setAttribute('data-theme',
+  localStorage.getItem('bolso_theme_pref') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
 function applyTheme(){
   document.documentElement.setAttribute('data-theme', DB.theme);
   $('#themeTg').textContent = DB.theme==='dark' ? '☀' : '◐';
+  localStorage.setItem('bolso_theme_pref', DB.theme);
 }
 $('#themeTg').onclick=()=>{
   DB.theme = DB.theme==='dark' ? 'light' : 'dark';
@@ -675,6 +713,7 @@ function renderBudget(){
 
 /* ---------------- AJUSTES ---------------- */
 function renderSettings(){
+  $('#acctEmail').textContent = authEmail ? ('Conectado como '+authEmail) : '';
   const exp = DB.categories.filter(c=>c.type==='expense');
   const inc = DB.categories.filter(c=>c.type==='income');
   $('#catExpList').innerHTML = exp.map(c=>`<div class="cfgrow" data-id="${c.id}">
@@ -833,10 +872,13 @@ $('#catSave').onclick=()=>{
   let savedId = editingCatId;
   if(editingCatId){
     const c = catById(editingCatId);
-    Object.assign(c, {name, color:editingCatColor, budget: c.type==='expense'?budget:undefined});
+    c.name = name; c.color = editingCatColor;
+    if(c.type==='expense') c.budget = budget; else delete c.budget;
   } else {
     savedId = uid();
-    DB.categories.push({id:savedId, name, color:editingCatColor, type:editingCatType, budget: editingCatType==='expense'?budget:undefined});
+    const newCat = {id:savedId, name, color:editingCatColor, type:editingCatType};
+    if(editingCatType==='expense') newCat.budget = budget;
+    DB.categories.push(newCat);
   }
   saveDB(); closeSheet('ovCat'); render();
   if(catModalReturnToTx){
@@ -870,16 +912,141 @@ $$('.ov').forEach(ov=>ov.addEventListener('click', e=>{
   if(ov.id==='ovCat') cancelCatModal(); else closeSheet(ov.id);
 }));
 
-/* ---------------- start ---------------- */
-applyTheme();
-render();
+/* ---------------- Firebase (login + sincronização na nuvem) ---------------- */
+/* Chaves do seu projeto Firebase (Console → Configurações do projeto → Seus apps → SDK). */
+const firebaseConfig = {
+  apiKey: "COLE_AQUI",
+  authDomain: "COLE_AQUI",
+  projectId: "COLE_AQUI",
+  storageBucket: "COLE_AQUI",
+  messagingSenderId: "COLE_AQUI",
+  appId: "COLE_AQUI"
+};
+const FB_VER = '10.13.0';
+
+function showAuthScreen(){ $('#appRoot').classList.add('hidden'); $('#authScreen').classList.remove('hidden'); }
+function showApp(){ $('#authScreen').classList.add('hidden'); $('#appRoot').classList.remove('hidden'); }
+function showAuthMsg(msg, isError){
+  const el = $('#authMsg');
+  el.textContent = msg; el.style.display = '';
+  el.style.color = isError===false ? 'var(--inc)' : 'var(--exp)';
+}
+
+function translateAuthError(code){
+  const map = {
+    'auth/invalid-email':'E-mail inválido.',
+    'auth/user-not-found':'Conta não encontrada. Toque em "Criar uma conta".',
+    'auth/wrong-password':'Senha incorreta.',
+    'auth/invalid-credential':'E-mail ou senha incorretos.',
+    'auth/email-already-in-use':'Já existe uma conta com este e-mail. Toque em "Já tenho conta".',
+    'auth/weak-password':'A senha precisa ter pelo menos 6 caracteres.',
+    'auth/network-request-failed':'Falha de conexão. Verifique sua internet.'
+  };
+  return map[code] || 'Não foi possível continuar. Tente novamente.';
+}
+
+$('#authToggle').onclick=()=>{
+  authMode = authMode==='login' ? 'signup' : 'login';
+  $('#authSubmit').textContent = authMode==='login' ? 'Entrar' : 'Criar conta';
+  $('#authToggle').textContent = authMode==='login' ? 'Criar uma conta' : 'Já tenho conta';
+  $('#authMsg').style.display='none';
+};
+
+$('#authSubmit').onclick=async ()=>{
+  if(!fb){ showAuthMsg('Ainda conectando ao servidor, aguarde um instante e tente de novo.'); return; }
+  const email = $('#authEmail').value.trim();
+  const password = $('#authPassword').value;
+  if(!email || !password){ showAuthMsg('Preencha e-mail e senha.'); return; }
+  $('#authSubmit').disabled = true;
+  $('#authMsg').style.display='none';
+  try{
+    if(authMode==='login') await fb.signInWithEmailAndPassword(fb.auth, email, password);
+    else await fb.createUserWithEmailAndPassword(fb.auth, email, password);
+  }catch(err){
+    showAuthMsg(translateAuthError(err.code));
+  }
+  $('#authSubmit').disabled = false;
+};
+
+$('#authForgot').onclick=async ()=>{
+  if(!fb){ showAuthMsg('Ainda conectando ao servidor, aguarde um instante e tente de novo.'); return; }
+  const email = $('#authEmail').value.trim();
+  if(!email){ showAuthMsg('Digite seu e-mail acima e toque de novo para receber o link de redefinição.'); return; }
+  try{
+    await fb.sendPasswordResetEmail(fb.auth, email);
+    showAuthMsg('Link de redefinição enviado para seu e-mail.', false);
+  }catch(err){
+    showAuthMsg(translateAuthError(err.code));
+  }
+};
+
+$('#btnLogout').onclick=()=>{
+  if(fb && confirm('Sair da sua conta neste aparelho?')) fb.signOut(fb.auth);
+};
+
+async function initUserData(){
+  const ref = fb.doc(fb.dbFs, 'bolso_users', authUid);
+  const snap = await fb.getDoc(ref);
+  if(snap.exists()){
+    DB = snap.data();
+  } else {
+    let seed = defaultDB();
+    const legacy = readLegacyLocalDB();
+    if(legacy && confirm('Encontramos dados salvos neste aparelho de antes da conta na nuvem. Importar para sua conta agora?')){
+      seed = legacy;
+    }
+    DB = seed;
+    await fb.setDoc(ref, DB);
+  }
+  applyTheme();
+  render();
+  unsubscribeSnapshot = fb.onSnapshot(ref, snap=>{
+    if(snap.metadata.hasPendingWrites) return;
+    if(snap.exists()){
+      DB = snap.data();
+      applyTheme();
+      render();
+    }
+  });
+}
+
+async function onAuthChange(user){
+  if(unsubscribeSnapshot){ unsubscribeSnapshot(); unsubscribeSnapshot=null; }
+  if(!user){
+    authUid = null; authEmail = null;
+    showAuthScreen();
+    return;
+  }
+  authUid = user.uid;
+  authEmail = user.email;
+  await initUserData();
+  showApp();
+}
+
+async function initFirebase(){
+  try{
+    const [appMod, authMod, fsMod] = await Promise.all([
+      import(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-app.js`),
+      import(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-auth.js`),
+      import(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-firestore.js`)
+    ]);
+    const app = appMod.initializeApp(firebaseConfig);
+    const auth = authMod.getAuth(app);
+    const dbFs = fsMod.getFirestore(app);
+    fsMod.enableIndexedDbPersistence(dbFs).catch(()=>{});
+    fb = Object.assign({auth, dbFs}, authMod, fsMod);
+    authMod.onAuthStateChanged(auth, onAuthChange);
+  }catch(err){
+    showAuthMsg('Não foi possível conectar ao servidor. Verifique sua internet e recarregue a página.');
+  }
+}
+initFirebase();
 
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
 
-/* Pede ao navegador para não descartar os dados sob pressão de armazenamento
-   (sem isso, localStorage pode ser apagado automaticamente em pouco uso do dispositivo). */
+/* Pede ao navegador para não descartar os dados sob pressão de armazenamento. */
 if('storage' in navigator && 'persist' in navigator.storage){
   navigator.storage.persist().catch(()=>{});
 }
