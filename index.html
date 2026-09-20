@@ -297,6 +297,16 @@ h2.sec:first-child{margin-top:14px}
     <div id="txList"></div>
   </div>
 
+  <!-- ============ POR CATEGORIA ============ -->
+  <div class="screen" id="scr-catv">
+    <div class="monthbar">
+      <button data-mv="-1">‹</button>
+      <span class="lb" id="mLabel4"></span>
+      <button data-mv="1">›</button>
+    </div>
+    <div id="catvList"></div>
+  </div>
+
   <!-- ============ ORÇAMENTO ============ -->
   <div class="screen" id="scr-bud">
     <div class="monthbar">
@@ -342,6 +352,7 @@ h2.sec:first-child{margin-top:14px}
   <nav class="nav"><div class="app-in">
     <button data-sc="dash" class="on"><span class="ic">⌂</span><span class="lb">Início</span></button>
     <button data-sc="tx"><span class="ic">≡</span><span class="lb">Lançamentos</span></button>
+    <button data-sc="catv"><span class="ic">▦</span><span class="lb">Categorias</span></button>
     <button data-sc="bud"><span class="ic">◎</span><span class="lb">Orçamento</span></button>
     <button data-sc="set"><span class="ic">⚙</span><span class="lb">Ajustes</span></button>
   </div></nav>
@@ -554,9 +565,10 @@ maskCurrencyInput($('#catBudget'));
 /* ---------------- render raiz ---------------- */
 function render(){
   const label = MESES[currentMonth.getMonth()]+' de '+currentMonth.getFullYear();
-  $('#mLabel1').textContent=label; $('#mLabel2').textContent=label; $('#mLabel3').textContent=label;
+  $('#mLabel1').textContent=label; $('#mLabel2').textContent=label; $('#mLabel3').textContent=label; $('#mLabel4').textContent=label;
   if(activeScreen==='dash') renderDash();
   else if(activeScreen==='tx') renderTx();
+  else if(activeScreen==='catv') renderCatView();
   else if(activeScreen==='bud') renderBudget();
   else if(activeScreen==='set') renderSettings();
 }
@@ -684,6 +696,36 @@ function renderTx(){
     </div>`;
   }).join('');
   bindTxRows('#txList');
+}
+
+/* ---------------- POR CATEGORIA ---------------- */
+function renderCatView(){
+  const txs = monthTx(currentMonth);
+  if(!txs.length){
+    $('#catvList').innerHTML = `<div class="empty"><b>Nada por aqui</b>Nenhum lançamento neste mês ainda.</div>`;
+    return;
+  }
+  const byCat = {};
+  txs.forEach(t=>{ (byCat[t.categoryId] = byCat[t.categoryId]||[]).push(t); });
+
+  function section(type, title){
+    const cats = DB.categories.filter(c=>c.type===type && byCat[c.id] && byCat[c.id].length);
+    if(!cats.length) return '';
+    const withTotals = cats.map(c=>{
+      const items = byCat[c.id].slice().sort((a,b)=> (b.date+b.createdAt).localeCompare(a.date+a.createdAt));
+      const total = items.reduce((s,t)=>s+t.amount,0);
+      return {c, items, total};
+    }).sort((a,b)=>b.total-a.total);
+    const body = withTotals.map(({c,items,total})=>`
+      <div class="daygrp">
+        <div class="dh"><span><span class="dot" style="display:inline-block;background:${c.color};margin-right:7px;vertical-align:middle"></span>${c.name} · ${items.length} lanç.</span><span>${fmtBRL(total)}</span></div>
+        ${items.map(txRowHtml).join('')}
+      </div>`).join('');
+    return `<h2 class="sec">${title}</h2>${body}`;
+  }
+
+  $('#catvList').innerHTML = section('expense','Despesas') + section('income','Receitas');
+  bindTxRows('#catvList');
 }
 
 /* ---------------- ORÇAMENTO ---------------- */
