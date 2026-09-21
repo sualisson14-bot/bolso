@@ -108,10 +108,11 @@ h2.sec:first-child{margin-top:14px}
 .donut .ctr b{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;line-height:1.15}
 .donut .ctr span{font-family:'Archivo Narrow',sans-serif;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);margin-top:2px}
 .legend{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
-.legend .li{display:flex;align-items:center;gap:8px;font-size:12.5px}
-.legend .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
-.legend .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink2)}
-.legend .pc{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--ink3)}
+.legend .li{display:flex;align-items:flex-start;gap:8px;font-size:12.5px}
+.legend .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;margin-top:4px}
+.legend .g{flex:1;min-width:0}
+.legend .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink2)}
+.legend .pc{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--ink3);margin-top:1px}
 
 /* ---------- tendência (barras) ---------- */
 .trend{margin:14px;padding:16px}
@@ -314,8 +315,9 @@ h2.sec:first-child{margin-top:14px}
       <span class="lb" id="mLabel3"></span>
       <button data-mv="1">›</button>
     </div>
+    <div id="budDonut"></div>
     <div class="pad" style="padding-bottom:0">
-      <p class="hint">Defina um limite mensal por categoria para acompanhar quanto já foi gasto. Toque numa categoria para editar o limite.</p>
+      <p class="hint">Toque numa categoria para ver os lançamentos e o limite mensal.</p>
     </div>
     <div id="budList"></div>
   </div>
@@ -401,6 +403,17 @@ h2.sec:first-child{margin-top:14px}
       </div>
       <button class="btn pri" id="catSave">Salvar</button>
       <button class="btn danger" id="catDelete" style="display:none">Excluir categoria</button>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: DETALHE DE CATEGORIA ============ -->
+  <div class="ov" id="ovCatDetail">
+    <div class="sheet">
+      <div class="sh"><h3 id="catDetailTitle"></h3><button class="x" data-close="ovCatDetail">×</button></div>
+      <div id="catDetailStats"></div>
+      <button class="btn gh" id="catDetailEditBudget">Editar limite</button>
+      <h2 class="sec" style="margin:18px 0 8px">Lançamentos do mês</h2>
+      <div id="catDetailList"></div>
     </div>
   </div>
 
@@ -574,6 +587,32 @@ function render(){
 }
 
 /* ---------------- DASHBOARD ---------------- */
+function expenseCatSegments(txs){
+  const byCat = {};
+  txs.filter(t=>t.type==='expense').forEach(t=>{ byCat[t.categoryId]=(byCat[t.categoryId]||0)+t.amount; });
+  return Object.entries(byCat).map(([id,v])=>({cat:catById(id),v})).filter(s=>s.cat).sort((a,b)=>b.v-a.v);
+}
+function donutHtml(segs, total, footLabel){
+  if(!segs.length || total<=0){
+    return `<div class="card" style="margin:14px;text-align:center;color:var(--ink3);padding:26px 16px">
+      Nenhuma despesa registrada neste mês ainda.</div>`;
+  }
+  let acc=0; const stops=[];
+  segs.forEach(s=>{
+    const pct = s.v/total*100;
+    const start=acc; acc+=pct;
+    stops.push(`${s.cat.color} ${start}% ${acc}%`);
+  });
+  const legend = segs.map(s=>`<div class="li"><span class="dot" style="background:${s.cat.color}"></span>
+    <div class="g"><div class="nm">${s.cat.name}</div><div class="pc">${fmtBRL(s.v)} · ${Math.round(s.v/total*100)}%</div></div></div>`).join('');
+  return `<div class="donutwrap card">
+    <div class="donut" style="background:conic-gradient(${stops.join(',')})">
+      <div class="ctr"><b>${fmtBRL(total)}</b><span>${footLabel}</span></div>
+    </div>
+    <div class="legend">${legend}</div>
+  </div>`;
+}
+
 function renderDash(){
   const txs = monthTx(currentMonth);
   const inc = sumBy(txs,'income');
@@ -606,28 +645,7 @@ function renderDash(){
   $('#dashBudget').innerHTML = budHtml;
 
   // donut de categorias (despesas do mês)
-  const expByCat = {};
-  txs.filter(t=>t.type==='expense').forEach(t=>{ expByCat[t.categoryId]=(expByCat[t.categoryId]||0)+t.amount; });
-  const segs = Object.entries(expByCat).map(([id,v])=>({cat:catById(id),v})).filter(s=>s.cat).sort((a,b)=>b.v-a.v);
-  if(segs.length){
-    let acc=0; const stops=[];
-    segs.forEach(s=>{
-      const pct = s.v/exp*100;
-      const start=acc; acc+=pct;
-      stops.push(`${s.cat.color} ${start}% ${acc}%`);
-    });
-    const legend = segs.map(s=>`<div class="li"><span class="dot" style="background:${s.cat.color}"></span>
-      <span class="nm">${s.cat.name}</span><span class="pc">${Math.round(s.v/exp*100)}%</span></div>`).join('');
-    $('#dashDonut').innerHTML = `<div class="donutwrap card">
-      <div class="donut" style="background:conic-gradient(${stops.join(',')})">
-        <div class="ctr"><b>${fmtBRL(exp)}</b><span>gasto</span></div>
-      </div>
-      <div class="legend">${legend}</div>
-    </div>`;
-  } else {
-    $('#dashDonut').innerHTML = `<div class="card" style="margin:14px;text-align:center;color:var(--ink3);padding:26px 16px">
-      Nenhuma despesa registrada neste mês ainda.</div>`;
-  }
+  $('#dashDonut').innerHTML = donutHtml(expenseCatSegments(txs), exp, 'gasto');
 
   // tendência (últimos 6 meses)
   const months=[];
@@ -731,6 +749,7 @@ function renderCatView(){
 /* ---------------- ORÇAMENTO ---------------- */
 function renderBudget(){
   const txs = monthTx(currentMonth);
+  $('#budDonut').innerHTML = donutHtml(expenseCatSegments(txs), sumBy(txs,'expense'), 'gasto no mês');
   const cats = DB.categories.filter(c=>c.type==='expense');
   if(!cats.length){
     $('#budList').innerHTML = `<div class="empty"><b>Nenhuma categoria</b>Crie categorias de despesa em Ajustes.</div>`;
@@ -750,8 +769,49 @@ function renderBudget(){
       : `<div class="vals">${fmtBRL(spent)} gastos · toque para definir um limite</div>`}
     </div>`;
   }).join('');
-  $$('#budList .catrow').forEach(el=>el.onclick=()=>openCatModal(catById(el.dataset.id)));
+  $$('#budList .catrow').forEach(el=>el.onclick=()=>openCatDetail(el.dataset.id));
 }
+
+/* ---------------- DETALHE DE CATEGORIA ---------------- */
+let catDetailId = null;
+function openCatDetail(catId){
+  catDetailId = catId;
+  const c = catById(catId);
+  const txs = monthTx(currentMonth).filter(t=>t.categoryId===catId)
+    .sort((a,b)=> (b.date+b.createdAt).localeCompare(a.date+a.createdAt));
+  const spent = txs.reduce((s,t)=>s+t.amount,0);
+
+  $('#catDetailTitle').innerHTML = `<span class="dot" style="display:inline-block;background:${c.color};margin-right:7px;vertical-align:middle"></span>${c.name}`;
+
+  const hasBudget = c.type==='expense' && c.budget>0;
+  let statsHtml = `<div class="budcard card" style="margin:0 0 16px">
+    <div class="hd"><span class="t">Total no mês</span><span class="p">${fmtBRL(spent)}</span></div>`;
+  if(hasBudget){
+    const pct = Math.min(999, Math.round(spent/c.budget*100));
+    const over = spent>c.budget;
+    const cls = over?'over':(pct>=80?'warn':'');
+    statsHtml += `<div class="bar ${cls}"><i style="width:${Math.min(100,pct)}%"></i></div>
+      <div class="foot ${over?'over':''}">${over?'Estourado: ':'Gasto '}${fmtBRL(spent)} de ${fmtBRL(c.budget)}${over?' ('+fmtBRL(spent-c.budget)+' acima)':''}</div>`;
+  } else if(c.type==='expense'){
+    statsHtml += `<div class="foot">Sem limite definido para esta categoria.</div>`;
+  }
+  statsHtml += `</div>`;
+  $('#catDetailStats').innerHTML = statsHtml;
+  $('#catDetailEditBudget').style.display = c.type==='expense' ? '' : 'none';
+
+  $('#catDetailList').innerHTML = txs.length ? txs.map(txRowHtml).join('') :
+    `<div class="empty"><b>Nada por aqui</b>Nenhum lançamento nesta categoria neste mês.</div>`;
+  $$('#catDetailList .tx').forEach(el=>el.onclick=()=>{
+    closeSheet('ovCatDetail');
+    openTxModal(DB.transactions.find(t=>t.id===el.dataset.id));
+  });
+
+  openSheet('ovCatDetail');
+}
+$('#catDetailEditBudget').onclick=()=>{
+  closeSheet('ovCatDetail');
+  openCatModal(catById(catDetailId));
+};
 
 /* ---------------- AJUSTES ---------------- */
 function renderSettings(){
