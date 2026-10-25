@@ -427,43 +427,75 @@ const $$=s=>[...document.querySelectorAll(s)];
 /* ---------------- dados padrão ---------------- */
 const PALETTE=['#B7332A','#1F5FA0','#2F6A4A','#EFC63C','#7A5AF8','#0E7C86','#D0699A','#C97A2E','#5B6470','#3D8C63'];
 
-function defaultDB(){
+function defaultCategories(){
+  return [
+    {id:'alimentacao', name:'Alimentação', color:'#B7332A', type:'expense', budget:0},
+    {id:'transporte',  name:'Transporte',  color:'#1F5FA0', type:'expense', budget:0},
+    {id:'moradia',     name:'Moradia',     color:'#7A5AF8', type:'expense', budget:0},
+    {id:'saude',       name:'Saúde',       color:'#2F6A4A', type:'expense', budget:0},
+    {id:'lazer',       name:'Lazer',       color:'#EFC63C', type:'expense', budget:0},
+    {id:'educacao',    name:'Educação',    color:'#0E7C86', type:'expense', budget:0},
+    {id:'compras',     name:'Compras',     color:'#D0699A', type:'expense', budget:0},
+    {id:'assinaturas', name:'Assinaturas', color:'#C97A2E', type:'expense', budget:0},
+    {id:'contas',      name:'Contas',      color:'#5B6470', type:'expense', budget:0},
+    {id:'outros_d',    name:'Outros',      color:'#858C8E', type:'expense', budget:0},
+    {id:'salario',     name:'Salário',     color:'#2F6A4A', type:'income'},
+    {id:'freelance',   name:'Freelance',   color:'#1F5FA0', type:'income'},
+    {id:'investimentos',name:'Investimentos',color:'#C97A2E', type:'income'},
+    {id:'outros_r',    name:'Outros',      color:'#858C8E', type:'income'},
+  ].map((c,i)=>({...c, order:i}));
+}
+function emptyDB(){
   return {
-    theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
-    categories: [
-      {id:'alimentacao', name:'Alimentação', color:'#B7332A', type:'expense', budget:0},
-      {id:'transporte',  name:'Transporte',  color:'#1F5FA0', type:'expense', budget:0},
-      {id:'moradia',     name:'Moradia',     color:'#7A5AF8', type:'expense', budget:0},
-      {id:'saude',       name:'Saúde',       color:'#2F6A4A', type:'expense', budget:0},
-      {id:'lazer',       name:'Lazer',       color:'#EFC63C', type:'expense', budget:0},
-      {id:'educacao',    name:'Educação',    color:'#0E7C86', type:'expense', budget:0},
-      {id:'compras',     name:'Compras',     color:'#D0699A', type:'expense', budget:0},
-      {id:'assinaturas', name:'Assinaturas', color:'#C97A2E', type:'expense', budget:0},
-      {id:'contas',      name:'Contas',      color:'#5B6470', type:'expense', budget:0},
-      {id:'outros_d',    name:'Outros',      color:'#858C8E', type:'expense', budget:0},
-      {id:'salario',     name:'Salário',     color:'#2F6A4A', type:'income'},
-      {id:'freelance',   name:'Freelance',   color:'#1F5FA0', type:'income'},
-      {id:'investimentos',name:'Investimentos',color:'#C97A2E', type:'income'},
-      {id:'outros_r',    name:'Outros',      color:'#858C8E', type:'income'},
-    ],
+    theme: localStorage.getItem('bolso_theme_pref') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'),
+    categories: [],
     transactions: []
   };
 }
 
-let DB = defaultDB();
-function readLegacyLocalDB(){
-  try{
-    const raw = localStorage.getItem('bolso_v1');
-    if(raw){
-      const local = JSON.parse(raw);
-      if(local && ((local.transactions&&local.transactions.length) || (local.categories&&local.categories.length))) return local;
-    }
-  }catch(e){}
-  return null;
+let DB = emptyDB();
+
+/* ---------------- armazenamento na nuvem ----------------
+   bolso_users/{uid}          → tema e versão do formato
+   bolso_users/{uid}/tx/{id}  → um documento por lançamento
+   bolso_users/{uid}/cats/{id}→ um documento por categoria
+   bolso_users/{uid}/backups/{AAAA-MM-DD} → cópia diária, só criação (regras impedem alterar/apagar)
+   Gravar um item nunca sobrescreve os outros, e só se grava quando os dados em memória
+   pertencem à conta logada neste momento. */
+let dataOwner = null;
+let dataReady = false;
+let authGen = 0;
+let listeners = [];
+
+function userRef(sub, id){
+  return sub ? fb.doc(fb.dbFs,'bolso_users',dataOwner,sub,id) : fb.doc(fb.dbFs,'bolso_users',dataOwner);
 }
-function saveDB(){
-  if(!fb || !authUid) return;
-  fb.setDoc(fb.doc(fb.dbFs,'bolso_users',authUid), DB).catch(()=>{});
+function canWrite(){
+  const ok = !!(fb && dataReady && dataOwner && authUid===dataOwner && fb.auth.currentUser && fb.auth.currentUser.uid===dataOwner);
+  if(!ok) alert('Seus dados ainda estão carregando. Tente de novo em instantes.');
+  return ok;
+}
+function clean(o){
+  const r = {};
+  for(const [k,v] of Object.entries(o)) if(k!=='id' && v!==undefined) r[k]=v;
+  return r;
+}
+function reportWriteError(e){
+  console.error(e);
+  alert('Não foi possível salvar na nuvem ('+(e.code||e.message)+').');
+}
+function putTx(t){ if(canWrite()) fb.setDoc(userRef('tx',t.id), clean(t)).catch(reportWriteError); }
+function delTx(id){ if(canWrite()) fb.deleteDoc(userRef('tx',id)).catch(reportWriteError); }
+function putCat(c){ if(canWrite()) fb.setDoc(userRef('cats',c.id), clean(c)).catch(reportWriteError); }
+function delCat(id){ if(canWrite()) fb.deleteDoc(userRef('cats',id)).catch(reportWriteError); }
+function putTheme(theme){ if(canWrite()) fb.setDoc(userRef(), {theme}, {merge:true}).catch(reportWriteError); }
+function writeMany(ops){
+  if(!canWrite()) return;
+  for(let i=0;i<ops.length;i+=400){
+    const b = fb.writeBatch(fb.dbFs);
+    ops.slice(i,i+400).forEach(op=> op.del ? b.delete(userRef(op.sub,op.id)) : b.set(userRef(op.sub,op.id), clean(op.data)));
+    b.commit().catch(reportWriteError);
+  }
 }
 
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
@@ -500,7 +532,6 @@ let fb = null;
 let authUid = null;
 let authEmail = null;
 let authMode = 'login';
-let unsubscribeSnapshot = null;
 
 /* ---------------- tema ---------------- */
 document.documentElement.setAttribute('data-theme',
@@ -511,16 +542,20 @@ function applyTheme(){
   localStorage.setItem('bolso_theme_pref', DB.theme);
 }
 $('#themeTg').onclick=()=>{
+  if(!canWrite()) return;
   DB.theme = DB.theme==='dark' ? 'light' : 'dark';
-  saveDB(); applyTheme();
+  applyTheme(); putTheme(DB.theme);
 };
 
 /* ---------------- navegação ---------------- */
+function goToScreen(sc){
+  activeScreen = sc;
+  $$('.nav button').forEach(x=>x.classList.toggle('on', x.dataset.sc===sc));
+  $$('.screen').forEach(s=>s.classList.toggle('on', s.id==='scr-'+sc));
+  $('#fab').style.display = (sc==='dash'||sc==='tx') ? '' : 'none';
+}
 $$('.nav button').forEach(b=>b.onclick=()=>{
-  activeScreen = b.dataset.sc;
-  $$('.nav button').forEach(x=>x.classList.toggle('on', x===b));
-  $$('.screen').forEach(s=>s.classList.toggle('on', s.id==='scr-'+activeScreen));
-  $('#fab').style.display = (activeScreen==='dash'||activeScreen==='tx') ? '' : 'none';
+  goToScreen(b.dataset.sc);
   render();
 });
 
@@ -868,18 +903,32 @@ $('#fileImport').onchange=(e)=>{
   reader.onload=()=>{
     try{
       const data = JSON.parse(reader.result);
-      if(!data.categories || !data.transactions) throw new Error('formato inválido');
-      DB = data; saveDB(); applyTheme(); render();
-      alert('Backup importado com sucesso.');
+      if(!Array.isArray(data.categories) || !Array.isArray(data.transactions)) throw new Error('formato inválido');
+      if(!canWrite()) return;
+      const have = new Set(DB.transactions.map(t=>t.id));
+      const novos = data.transactions.filter(t=>t.id && !have.has(t.id));
+      const haveCat = new Set(DB.categories.map(c=>c.id));
+      const novasCats = data.categories.filter(c=>c.id && !haveCat.has(c.id));
+      if(!confirm(`Adicionar ${novos.length} lançamentos e ${novasCats.length} categorias deste backup? Nada do que já existe será apagado.`)) return;
+      writeMany([
+        ...novasCats.map((c,i)=>({sub:'cats', id:c.id, data:{...c, order: c.order ?? 1000+i}})),
+        ...novos.map(t=>({sub:'tx', id:t.id, data:t}))
+      ]);
     }catch(err){ alert('Arquivo inválido.'); }
   };
   reader.readAsText(file);
   e.target.value='';
 };
 $('#btnReset').onclick=()=>{
-  if(confirm('Isso vai apagar todos os lançamentos e categorias personalizadas. Continuar?')){
-    DB = defaultDB(); saveDB(); applyTheme(); render();
-  }
+  if(!canWrite()) return;
+  if(!confirm('Isso vai apagar TODOS os seus lançamentos e categorias personalizadas. Continuar?')) return;
+  if(prompt('Para confirmar, digite APAGAR')!=='APAGAR') return;
+  const defs = defaultCategories();
+  writeMany([
+    ...DB.transactions.map(t=>({sub:'tx', id:t.id, del:true})),
+    ...DB.categories.filter(c=>!defs.some(d=>d.id===c.id)).map(c=>({sub:'cats', id:c.id, del:true})),
+    ...defs.map(c=>({sub:'cats', id:c.id, data:c}))
+  ]);
 };
 
 /* ---------------- MODAL: transação ---------------- */
@@ -931,18 +980,22 @@ $('#txSave').onclick=()=>{
   const note = $('#txNote').value.trim();
   if(amount<=0){ alert('Informe um valor maior que zero.'); return; }
   if(!editingTxCat){ alert('Selecione uma categoria.'); return; }
+  if(!canWrite()) return;
+  let t;
   if(editingTxId){
-    const t = DB.transactions.find(x=>x.id===editingTxId);
+    t = DB.transactions.find(x=>x.id===editingTxId);
     Object.assign(t, {type:editingTxType, categoryId:editingTxCat, amount, date, note});
   } else {
-    DB.transactions.push({id:uid(), type:editingTxType, categoryId:editingTxCat, amount, date, note, createdAt:Date.now().toString(36)});
+    t = {id:uid(), type:editingTxType, categoryId:editingTxCat, amount, date, note, createdAt:Date.now().toString(36)};
+    DB.transactions.push(t);
   }
-  saveDB(); closeSheet('ovTx'); render();
+  putTx(t); closeSheet('ovTx'); render();
 };
 $('#txDelete').onclick=()=>{
+  if(!canWrite()) return;
   if(confirm('Excluir este lançamento?')){
     DB.transactions = DB.transactions.filter(t=>t.id!==editingTxId);
-    saveDB(); closeSheet('ovTx'); render();
+    delTx(editingTxId); closeSheet('ovTx'); render();
   }
 };
 $('#fab').onclick=()=>openTxModal(null);
@@ -971,18 +1024,19 @@ $('#catSave').onclick=()=>{
   const name = $('#catName').value.trim();
   if(!name){ alert('Informe um nome.'); return; }
   const budget = parseFloat($('#catBudget').dataset.value || '0');
-  let savedId = editingCatId;
+  if(!canWrite()) return;
+  let c;
   if(editingCatId){
-    const c = catById(editingCatId);
+    c = catById(editingCatId);
     c.name = name; c.color = editingCatColor;
     if(c.type==='expense') c.budget = budget; else delete c.budget;
   } else {
-    savedId = uid();
-    const newCat = {id:savedId, name, color:editingCatColor, type:editingCatType};
-    if(editingCatType==='expense') newCat.budget = budget;
-    DB.categories.push(newCat);
+    c = {id:uid(), name, color:editingCatColor, type:editingCatType, order:Date.now()};
+    if(editingCatType==='expense') c.budget = budget;
+    DB.categories.push(c);
   }
-  saveDB(); closeSheet('ovCat'); render();
+  const savedId = c.id;
+  putCat(c); closeSheet('ovCat'); render();
   if(catModalReturnToTx){
     catModalReturnToTx = false;
     editingTxCat = savedId;
@@ -993,9 +1047,10 @@ $('#catSave').onclick=()=>{
 $('#catDelete').onclick=()=>{
   const inUse = DB.transactions.some(t=>t.categoryId===editingCatId);
   if(inUse){ alert('Esta categoria está em uso por lançamentos e não pode ser excluída.'); return; }
+  if(!canWrite()) return;
   if(confirm('Excluir esta categoria?')){
     DB.categories = DB.categories.filter(c=>c.id!==editingCatId);
-    saveDB(); closeSheet('ovCat'); render();
+    delCat(editingCatId); closeSheet('ovCat'); render();
   }
 };
 
@@ -1087,43 +1142,119 @@ $('#btnLogout').onclick=()=>{
   if(fb && confirm('Sair da sua conta neste aparelho?')) fb.signOut(fb.auth);
 };
 
-async function initUserData(){
-  const ref = fb.doc(fb.dbFs, 'bolso_users', authUid);
-  const snap = await fb.getDoc(ref);
-  if(snap.exists()){
-    DB = snap.data();
-  } else {
-    let seed = defaultDB();
-    const legacy = readLegacyLocalDB();
-    if(legacy && confirm('Encontramos dados salvos neste aparelho de antes da conta na nuvem. Importar para sua conta agora?')){
-      seed = legacy;
+/* Prepara a conta no servidor. A decisão "conta nova" é tomada dentro de uma transação,
+   que sempre lê do servidor: uma conta que já tem dados nunca recebe os dados padrão. */
+async function ensureAccount(u){
+  const mainRef = fb.doc(fb.dbFs,'bolso_users',u);
+  const sub = (name,id)=>fb.doc(fb.dbFs,'bolso_users',u,name,id);
+  const legacyItems = d => (d.categories||[]).length + (d.transactions||[]).length;
+  const plan = await fb.runTransaction(fb.dbFs, async tr=>{
+    const snap = await tr.get(mainRef);
+    const d = snap.exists() ? snap.data() : null;
+    if(d && d.schema===3) return 'ok';
+    if(!d){
+      tr.set(mainRef, {schema:3, theme:emptyDB().theme, createdAt:Date.now()});
+      defaultCategories().forEach(c=>tr.set(sub('cats',c.id), clean(c)));
+      return 'created';
     }
-    DB = seed;
-    await fb.setDoc(ref, DB);
+    if(legacyItems(d) > 450) return 'bigLegacy';
+    (d.categories||[]).forEach((c,i)=>tr.set(sub('cats',c.id), clean({...c, order: c.order ?? i})));
+    (d.transactions||[]).forEach(t=>tr.set(sub('tx',t.id), clean(t)));
+    tr.set(mainRef, {schema:3, migratedAt:Date.now()}, {merge:true});
+    return 'migrated';
+  });
+  if(plan==='bigLegacy'){
+    const d = (await fb.getDocFromServer(mainRef)).data();
+    const ops = [
+      ...(d.categories||[]).map((c,i)=>[sub('cats',c.id), clean({...c, order: c.order ?? i})]),
+      ...(d.transactions||[]).map(t=>[sub('tx',t.id), clean(t)])
+    ];
+    for(let i=0;i<ops.length;i+=400){
+      const b = fb.writeBatch(fb.dbFs);
+      ops.slice(i,i+400).forEach(([ref,data])=>b.set(ref,data));
+      await b.commit();
+    }
+    await fb.setDoc(mainRef, {schema:3, migratedAt:Date.now()}, {merge:true});
   }
-  applyTheme();
-  render();
-  unsubscribeSnapshot = fb.onSnapshot(ref, snap=>{
-    if(snap.metadata.hasPendingWrites) return;
-    if(snap.exists()){
-      DB = snap.data();
-      applyTheme();
-      render();
-    }
+}
+
+function withTimeout(promise, ms){
+  return Promise.race([promise, new Promise((_,reject)=>setTimeout(()=>reject(Object.assign(new Error('tempo esgotado'),{code:'timeout'})), ms))]);
+}
+
+function stopListeners(){ listeners.forEach(fn=>fn()); listeners = []; }
+
+function startListeners(u, gen){
+  return new Promise((resolve, reject)=>{
+    let gotTx=false, gotCats=false;
+    const ready = ()=>{ if(gotTx && gotCats) resolve(); };
+    listeners.push(fb.onSnapshot(fb.collection(fb.dbFs,'bolso_users',u,'tx'), s=>{
+      if(gen!==authGen) return;
+      DB.transactions = s.docs.map(d=>({id:d.id, ...d.data()}));
+      gotTx = true; if(dataReady) render(); ready();
+    }, reject));
+    listeners.push(fb.onSnapshot(fb.collection(fb.dbFs,'bolso_users',u,'cats'), s=>{
+      if(gen!==authGen) return;
+      DB.categories = s.docs.map(d=>({id:d.id, ...d.data()})).sort((a,b)=>(a.order||0)-(b.order||0));
+      gotCats = true; if(dataReady) render(); ready();
+    }, reject));
+    listeners.push(fb.onSnapshot(fb.doc(fb.dbFs,'bolso_users',u), s=>{
+      if(gen!==authGen || !s.exists()) return;
+      const th = s.data().theme;
+      if(th && th!==DB.theme){ DB.theme = th; applyTheme(); }
+    }, ()=>{}));
   });
 }
 
+async function dailyBackup(u, gen){
+  if(!DB.transactions.length) return;
+  const ref = fb.doc(fb.dbFs,'bolso_users',u,'backups',todayISO());
+  try{
+    const s = await fb.getDocFromServer(ref);
+    if(s.exists() || gen!==authGen) return;
+    await fb.setDoc(ref, {createdAt:Date.now(), categories:DB.categories, transactions:DB.transactions});
+  }catch(e){}
+}
+
 async function onAuthChange(user){
-  if(unsubscribeSnapshot){ unsubscribeSnapshot(); unsubscribeSnapshot=null; }
+  const gen = ++authGen;
+  stopListeners();
+  dataReady = false; dataOwner = null; DB = emptyDB();
+  $$('.ov').forEach(o=>o.classList.remove('on'));
+  catModalReturnToTx = false;
+  goToScreen('dash');
+  $('#appRoot').classList.add('hidden');
   if(!user){
     authUid = null; authEmail = null;
     showAuthScreen();
+    $('#authMsg').style.display = 'none';
     return;
   }
   authUid = user.uid;
   authEmail = user.email;
-  await initUserData();
-  showApp();
+  showAuthScreen();
+  showAuthMsg('Carregando seus dados...', false);
+  try{
+    try{
+      await withTimeout(ensureAccount(user.uid), 20000);
+    }catch(e){
+      // sem internet: só segue se este aparelho já tem a conta no formato novo em cache
+      const c = await fb.getDocFromCache(fb.doc(fb.dbFs,'bolso_users',user.uid)).catch(()=>null);
+      if(!(c && c.exists() && c.data().schema===3)) throw e;
+    }
+    if(gen!==authGen) return;
+    await withTimeout(startListeners(user.uid, gen), 20000);
+    if(gen!==authGen) return;
+    dataOwner = user.uid; dataReady = true;
+    applyTheme(); render();
+    $('#authMsg').style.display = 'none';
+    showApp();
+    dailyBackup(user.uid, gen);
+  }catch(e){
+    if(gen!==authGen) return;
+    console.error(e);
+    showAuthMsg('Não foi possível carregar seus dados ('+(e.code||e.message)+'). Verifique a internet e recarregue a página.');
+  }
 }
 
 async function initFirebase(){

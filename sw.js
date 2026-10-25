@@ -1,6 +1,6 @@
 /* Service worker — cache do app para uso offline.
    Troque CACHE para forçar atualização depois de editar o index.html. */
-const CACHE = 'bolso-v2';
+const CACHE = 'bolso-v3';
 const SHELL = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', e => {
@@ -20,6 +20,18 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   /* Chamadas de rede do Firebase (auth/dados) nunca devem vir do cache — só o SDK estático (gstatic) é cacheável. */
   if (url.hostname.includes('googleapis.com') || url.hostname.includes('firebaseio.com')) return;
+
+  /* O próprio app (index.html) vem sempre da rede quando há internet, para nunca rodar uma versão velha. */
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request).then(res => {
+        const copia = res.clone();
+        caches.open(CACHE).then(c => c.put(e.request, copia));
+        return res;
+      }).catch(() => caches.match(e.request).then(hit => hit || caches.match('./index.html')))
+    );
+    return;
+  }
 
   e.respondWith(
     caches.match(e.request).then(hit => {
