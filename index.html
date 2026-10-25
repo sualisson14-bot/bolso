@@ -223,6 +223,15 @@ h2.sec:first-child{margin-top:14px}
 .authcard>.hint{text-align:center;margin-bottom:24px}
 #authMsg{text-align:center;margin:-6px 0 14px;color:var(--exp)}
 #authForgot{margin-top:2px;font-size:11.5px}
+#gateText{text-align:center;margin-bottom:22px}
+
+.reqrow{background:var(--panel);border-bottom:1px solid var(--rule2);padding:12px 14px}
+.reqrow .nm{font-size:14px;font-weight:600}
+.reqrow .em{font-size:12.5px;color:var(--ink2);margin-top:2px;word-break:break-all}
+.reqrow .dt{font-size:11.5px;color:var(--ink3);margin-top:2px}
+.reqrow .acts{display:flex;gap:8px;margin-top:10px}
+.reqrow .acts .btn{margin:0;min-height:38px;padding:8px;font-size:11.5px}
+.adminalert{margin:14px;padding:12px 14px;background:var(--warn2);border:1px solid var(--warn);color:var(--ink);font-size:13px;font-weight:600;cursor:pointer}
 .catgrid{display:flex;flex-wrap:wrap;gap:8px}
 .catchip{border:1.4px solid var(--rule);background:var(--panel);padding:8px 12px;border-radius:20px;
   display:flex;align-items:center;gap:7px;font-size:12.5px;cursor:pointer;color:var(--ink2)}
@@ -246,12 +255,24 @@ h2.sec:first-child{margin-top:14px}
   <div class="authcard">
     <h1>Bolso</h1>
     <p class="hint">Seus lançamentos, sincronizados com segurança entre seus aparelhos.</p>
+    <div class="field hidden" id="authNameField"><label>Seu nome</label><input type="text" id="authName" autocomplete="name"></div>
     <div class="field"><label>E-mail</label><input type="email" id="authEmail" autocomplete="username"></div>
     <div class="field"><label>Senha</label><input type="password" id="authPassword" autocomplete="current-password"></div>
     <p class="hint" id="authMsg" style="display:none"></p>
     <button class="btn pri" id="authSubmit">Entrar</button>
-    <button class="btn gh" id="authToggle">Criar uma conta</button>
+    <button class="btn gh" id="authToggle">Pedir acesso</button>
     <button class="btn gh" id="authForgot" style="border:none;color:var(--accent)">Esqueci minha senha</button>
+  </div>
+</div>
+
+<div class="authwrap hidden" id="gateScreen">
+  <div class="authcard">
+    <h1 id="gateTitle"></h1>
+    <p class="hint" id="gateText"></p>
+    <p class="hint" id="gateMsg" style="display:none;text-align:center"></p>
+    <button class="btn pri hidden" id="gateSendVerify">Enviar e-mail de confirmação</button>
+    <button class="btn gh" id="gateRecheck">Verificar de novo</button>
+    <button class="btn gh" id="gateLogout">Sair</button>
   </div>
 </div>
 
@@ -275,6 +296,7 @@ h2.sec:first-child{margin-top:14px}
 
     <div class="card balance" id="balCard"></div>
 
+    <div id="dashAdminAlert"></div>
     <div id="dashBudget"></div>
     <div id="dashDonut"></div>
     <div id="dashTrend"></div>
@@ -330,6 +352,11 @@ h2.sec:first-child{margin-top:14px}
       <button class="btn gh" id="btnLogout">Sair da conta</button>
     </div>
 
+    <div id="adminEntry" class="hidden">
+      <h2 class="sec">Administração</h2>
+      <div class="pad"><button class="btn pri" id="btnAdmin">Painel de contas</button></div>
+    </div>
+
     <h2 class="sec">Categorias de despesa</h2>
     <div id="catExpList"></div>
     <div class="addrow" id="addCatExp">+ Nova categoria de despesa</div>
@@ -347,6 +374,15 @@ h2.sec:first-child{margin-top:14px}
       <button class="btn danger" id="btnReset">Apagar todos os dados</button>
     </div>
     <p class="hint" style="padding:0 14px 14px">Bolso v2 · Seus dados ficam salvos na nuvem, associados à sua conta, e sincronizam entre seus aparelhos.</p>
+  </div>
+
+  <!-- ============ PAINEL DE CONTAS (só administrador) ============ -->
+  <div class="screen" id="scr-admin">
+    <div class="pad" style="padding-bottom:0">
+      <button class="btn gh" id="adminBack" style="margin-bottom:4px">‹ Voltar para Ajustes</button>
+      <p class="hint">Cada pessoa pede acesso na tela de entrada. A conta só consegue usar o app depois que você aprovar aqui. Você vê nome, e-mail e situação, nunca os lançamentos.</p>
+    </div>
+    <div id="adminList"></div>
   </div>
 
   <button class="fab" id="fab">+ Novo lançamento</button>
@@ -619,6 +655,7 @@ function render(){
   else if(activeScreen==='catv') renderCatView();
   else if(activeScreen==='bud') renderBudget();
   else if(activeScreen==='set') renderSettings();
+  else if(activeScreen==='admin') renderAdmin();
 }
 
 /* ---------------- DASHBOARD ---------------- */
@@ -1082,8 +1119,29 @@ const firebaseConfig = {
 };
 const FB_VER = '10.13.0';
 
-function showAuthScreen(){ $('#appRoot').classList.add('hidden'); $('#authScreen').classList.remove('hidden'); }
-function showApp(){ $('#authScreen').classList.add('hidden'); $('#appRoot').classList.remove('hidden'); }
+/* Só define o que a interface mostra. Quem de fato é administrador é decidido pelas regras do Firestore. */
+const ADMIN_EMAIL = 'sualisson14@gmail.com';
+function isAdminUser(){ return !!authEmail && authEmail.toLowerCase()===ADMIN_EMAIL; }
+
+function showAuthScreen(){ $('#appRoot').classList.add('hidden'); $('#gateScreen').classList.add('hidden'); $('#authScreen').classList.remove('hidden'); }
+function showApp(){ $('#authScreen').classList.add('hidden'); $('#gateScreen').classList.add('hidden'); $('#appRoot').classList.remove('hidden'); }
+function showGate(kind){
+  const texts = {
+    pending: ['Pedido enviado', `A conta ${authEmail} está aguardando aprovação. Assim que for aprovada, o app abre sozinho.`],
+    rejected: ['Acesso não liberado', `O acesso da conta ${authEmail} não foi aprovado.`],
+    verify: ['Confirme seu e-mail', `Para entrar como administrador, confirme o e-mail ${authEmail}. Toque no botão abaixo, abra o link que chegar no seu e-mail e depois toque em "Verificar de novo".`]
+  };
+  $('#gateTitle').textContent = texts[kind][0];
+  $('#gateText').textContent = texts[kind][1];
+  $('#gateMsg').style.display = 'none';
+  $('#gateSendVerify').classList.toggle('hidden', kind!=='verify');
+  $('#authScreen').classList.add('hidden'); $('#appRoot').classList.add('hidden');
+  $('#gateScreen').classList.remove('hidden');
+}
+function showGateMsg(msg, ok){
+  const el = $('#gateMsg'); el.textContent = msg; el.style.display = '';
+  el.style.color = ok ? 'var(--inc)' : 'var(--exp)';
+}
 function showAuthMsg(msg, isError){
   const el = $('#authMsg');
   el.textContent = msg; el.style.display = '';
@@ -1093,10 +1151,11 @@ function showAuthMsg(msg, isError){
 function translateAuthError(code){
   const map = {
     'auth/invalid-email':'E-mail inválido.',
-    'auth/user-not-found':'Conta não encontrada. Toque em "Criar uma conta".',
+    'auth/user-not-found':'Conta não encontrada. Toque em "Pedir acesso".',
     'auth/wrong-password':'Senha incorreta.',
     'auth/invalid-credential':'E-mail ou senha incorretos.',
-    'auth/email-already-in-use':'Já existe uma conta com este e-mail. Toque em "Já tenho conta".',
+    'auth/email-already-in-use':'Já existe uma conta com este e-mail. Toque em "Já tenho conta" e entre.',
+    'auth/too-many-requests':'Muitas tentativas. Espere alguns minutos e tente de novo.',
     'auth/weak-password':'A senha precisa ter pelo menos 6 caracteres.',
     'auth/network-request-failed':'Falha de conexão. Verifique sua internet.'
   };
@@ -1105,21 +1164,26 @@ function translateAuthError(code){
 
 $('#authToggle').onclick=()=>{
   authMode = authMode==='login' ? 'signup' : 'login';
-  $('#authSubmit').textContent = authMode==='login' ? 'Entrar' : 'Criar conta';
-  $('#authToggle').textContent = authMode==='login' ? 'Criar uma conta' : 'Já tenho conta';
+  $('#authSubmit').textContent = authMode==='login' ? 'Entrar' : 'Enviar pedido';
+  $('#authToggle').textContent = authMode==='login' ? 'Pedir acesso' : 'Já tenho conta';
+  $('#authNameField').classList.toggle('hidden', authMode==='login');
+  $('#authPassword').autocomplete = authMode==='login' ? 'current-password' : 'new-password';
   $('#authMsg').style.display='none';
 };
 
+let pendingSignupName = '';
 $('#authSubmit').onclick=async ()=>{
   if(!fb){ showAuthMsg('Ainda conectando ao servidor, aguarde um instante e tente de novo.'); return; }
   const email = $('#authEmail').value.trim();
   const password = $('#authPassword').value;
+  const name = $('#authName').value.trim();
+  if(authMode==='signup' && !name){ showAuthMsg('Informe seu nome.'); return; }
   if(!email || !password){ showAuthMsg('Preencha e-mail e senha.'); return; }
   $('#authSubmit').disabled = true;
   $('#authMsg').style.display='none';
   try{
     if(authMode==='login') await fb.signInWithEmailAndPassword(fb.auth, email, password);
-    else await fb.createUserWithEmailAndPassword(fb.auth, email, password);
+    else { pendingSignupName = name; await fb.createUserWithEmailAndPassword(fb.auth, email, password); }
   }catch(err){
     showAuthMsg(translateAuthError(err.code));
   }
@@ -1216,8 +1280,93 @@ async function dailyBackup(u, gen){
   }catch(e){}
 }
 
+/* Pedido de acesso: access_requests/{uid} com status pending | approved | rejected.
+   Só o administrador muda o status; as regras bloqueiam qualquer dado de quem não foi aprovado. */
+async function checkAccess(user){
+  if(isAdminUser()) return user.emailVerified ? 'ok' : 'verify';
+  const ref = fb.doc(fb.dbFs,'access_requests',user.uid);
+  let s;
+  try{ s = await fb.getDocFromServer(ref); }
+  catch(e){ s = await fb.getDocFromCache(ref); }
+  if(!s.exists()){
+    await fb.setDoc(ref, {email:user.email, name:pendingSignupName || '', status:'pending', requestedAt:Date.now()});
+    pendingSignupName = '';
+    return 'pending';
+  }
+  const st = s.data().status;
+  return st==='approved' ? 'ok' : (st==='rejected' ? 'rejected' : 'pending');
+}
+
+function watchOwnRequest(u, gen){
+  listeners.push(fb.onSnapshot(fb.doc(fb.dbFs,'access_requests',u), s=>{
+    if(gen!==authGen || !s.exists() || s.metadata.hasPendingWrites || s.metadata.fromCache) return;
+    if(s.data().status!=='pending') onAuthChange(fb.auth.currentUser);
+  }, ()=>{}));
+}
+
+$('#gateLogout').onclick=()=>{ if(fb) fb.signOut(fb.auth); };
+$('#gateRecheck').onclick=async ()=>{
+  const u = fb && fb.auth.currentUser; if(!u) return;
+  try{ await u.reload(); await u.getIdToken(true); }catch(e){}
+  if(isAdminUser() && !fb.auth.currentUser.emailVerified){ showGateMsg('Ainda não consta como confirmado. Abra o link do e-mail e tente de novo.'); return; }
+  onAuthChange(fb.auth.currentUser);
+};
+$('#gateSendVerify').onclick=async ()=>{
+  try{
+    await fb.sendEmailVerification(fb.auth.currentUser);
+    showGateMsg('E-mail enviado para '+authEmail+'. Veja também a caixa de spam.', true);
+  }catch(e){ showGateMsg(translateAuthError(e.code)); }
+};
+
+/* ---------------- painel de contas ---------------- */
+let adminReqs = [];
+function startAdminListener(gen){
+  listeners.push(fb.onSnapshot(fb.collection(fb.dbFs,'access_requests'), s=>{
+    if(gen!==authGen) return;
+    adminReqs = s.docs.map(d=>({uid:d.id, ...d.data()}));
+    renderAdminBits();
+  }, e=>console.error('painel', e)));
+}
+function renderAdminBits(){
+  const pend = adminReqs.filter(r=>r.status==='pending').length;
+  $('#adminEntry').classList.toggle('hidden', !isAdminUser());
+  $('#btnAdmin').textContent = 'Painel de contas' + (pend ? ` (${pend} pendente${pend>1?'s':''})` : '');
+  $('#dashAdminAlert').innerHTML = isAdminUser() && pend
+    ? `<div class="adminalert" id="adminAlertGo">${pend} pedido${pend>1?'s':''} de acesso aguardando sua aprovação ›</div>` : '';
+  const go = $('#adminAlertGo'); if(go) go.onclick=()=>{ goToScreen('admin'); render(); };
+  if(activeScreen==='admin') renderAdmin();
+}
+function fmtDate(ms){ return ms ? new Date(ms).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—'; }
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function renderAdmin(){
+  const groups = [
+    ['pending','Pedidos pendentes', [['approved','Aprovar','pri'],['rejected','Recusar','gh']]],
+    ['approved','Contas aprovadas', [['rejected','Revogar acesso','gh']]],
+    ['rejected','Recusadas ou revogadas', [['approved','Liberar acesso','gh']]]
+  ];
+  $('#adminList').innerHTML = groups.map(([st,title,acts])=>{
+    const rows = adminReqs.filter(r=>r.status===st).sort((a,b)=>(b.requestedAt||0)-(a.requestedAt||0));
+    return `<h2 class="sec">${title} (${rows.length})</h2>` + (rows.length ? rows.map(r=>`
+      <div class="reqrow">
+        <div class="nm">${escapeHtml(r.name) || '(sem nome)'}</div>
+        <div class="em">${escapeHtml(r.email)}</div>
+        <div class="dt">Pedido em ${fmtDate(r.requestedAt)}${r.decidedAt ? ' · decidido em '+fmtDate(r.decidedAt) : ''}</div>
+        <div class="acts">${acts.map(([to,label,cls])=>`<button class="btn ${cls}" data-uid="${r.uid}" data-to="${to}">${label}</button>`).join('')}</div>
+      </div>`).join('') : `<p class="hint" style="padding:0 14px">Nenhuma.</p>`);
+  }).join('');
+  $$('#adminList [data-to]').forEach(b=>b.onclick=()=>{
+    const r = adminReqs.find(x=>x.uid===b.dataset.uid);
+    const msg = {approved:`Liberar o acesso de ${r.email}?`, rejected:`Bloquear o acesso de ${r.email}?`}[b.dataset.to];
+    if(!confirm(msg)) return;
+    fb.updateDoc(fb.doc(fb.dbFs,'access_requests',r.uid), {status:b.dataset.to, decidedAt:Date.now()}).catch(reportWriteError);
+  });
+}
+$('#btnAdmin').onclick=()=>{ goToScreen('admin'); render(); };
+$('#adminBack').onclick=()=>{ goToScreen('set'); render(); };
+
 async function onAuthChange(user){
   const gen = ++authGen;
+  adminReqs = [];
   stopListeners();
   dataReady = false; dataOwner = null; DB = emptyDB();
   $$('.ov').forEach(o=>o.classList.remove('on'));
@@ -1235,6 +1384,14 @@ async function onAuthChange(user){
   showAuthScreen();
   showAuthMsg('Carregando seus dados...', false);
   try{
+    const access = await withTimeout(checkAccess(user), 20000);
+    if(gen!==authGen) return;
+    if(access!=='ok'){
+      $('#authMsg').style.display = 'none';
+      showGate(access);
+      if(access==='pending') watchOwnRequest(user.uid, gen);
+      return;
+    }
     try{
       await withTimeout(ensureAccount(user.uid), 20000);
     }catch(e){
@@ -1246,9 +1403,10 @@ async function onAuthChange(user){
     await withTimeout(startListeners(user.uid, gen), 20000);
     if(gen!==authGen) return;
     dataOwner = user.uid; dataReady = true;
-    applyTheme(); render();
+    applyTheme(); renderAdminBits(); render();
     $('#authMsg').style.display = 'none';
     showApp();
+    if(isAdminUser()) startAdminListener(gen);
     dailyBackup(user.uid, gen);
   }catch(e){
     if(gen!==authGen) return;
