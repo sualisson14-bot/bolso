@@ -1,6 +1,6 @@
 {
-  "name": "Bolso — Controle Financeiro",
-  "short_name": "Bolso",
+  "name": "Controle Financeiro",
+  "short_name": "Controle Financeiro",
   "description": "Controle de despesas e receitas pessoais, categorizado, com orçamento por categoria e dashboards.",
   "start_url": "./index.html",
   "scope": "./",
