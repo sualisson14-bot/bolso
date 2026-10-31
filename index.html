@@ -231,6 +231,60 @@ h2.sec:first-child{margin-top:14px}
 .reqrow .dt{font-size:11.5px;color:var(--ink3);margin-top:2px}
 .reqrow .acts{display:flex;gap:8px;margin-top:10px}
 .reqrow .acts .btn{margin:0;min-height:38px;padding:8px;font-size:11.5px}
+/* ---------- comparar meses ---------- */
+.cmpfilters{display:flex;gap:8px;padding:14px 14px 4px;flex-wrap:wrap;align-items:center}
+.rangeseg{display:flex;border:1px solid var(--rule);border-radius:8px;overflow:hidden;flex:0 0 auto}
+.rangeseg button{background:var(--panel);border:none;padding:8px 11px;font-size:12.5px;font-weight:600;color:var(--ink3);cursor:pointer}
+.rangeseg button+button{border-left:1px solid var(--rule)}
+.rangeseg button.on{background:var(--chrome);color:#fff}
+#cmpCat{flex:1 1 140px;min-width:0;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;background:var(--panel);font-size:14px}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 14px}
+.kpi{background:var(--panel);border:1px solid var(--rule);padding:11px 12px;min-width:0}
+.kpi .t{font-family:'Archivo Narrow',sans-serif;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
+.kpi .v{font-size:18px;font-weight:600;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi .s{font-size:11.5px;color:var(--ink2);margin-top:1px}
+.cmpchart{margin:0 14px;padding:14px 12px 10px}
+.cmpchart .ttl{font-family:'Archivo Narrow',sans-serif;font-size:12.5px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+.cmpchart .ttl .dot{width:9px;height:9px;border-radius:50%}
+.cmpplot{display:flex}
+.yaxis{position:relative;width:40px;flex:0 0 40px;height:160px}
+.yaxis span{position:absolute;right:6px;transform:translateY(50%);font-size:10px;color:var(--ink3);font-variant-numeric:tabular-nums;white-space:nowrap}
+.cmpscroll{flex:1;min-width:0;overflow-x:auto}
+.cmpinner{min-width:100%}
+.cmpbars{position:relative;height:160px;display:flex;align-items:flex-end;gap:2px}
+.cmpbars .grid{position:absolute;left:0;right:0;border-top:1px solid var(--rule2)}
+.cmpbars .avgline{position:absolute;left:0;right:0;border-top:1px solid var(--ink3);z-index:3;pointer-events:none}
+.cmpbars .avgline span{position:absolute;left:2px;top:-15px;font-size:10px;color:var(--ink2);background:var(--panel);padding:0 3px;white-space:nowrap}
+.bcol{flex:1 0 28px;height:100%;display:flex;align-items:flex-end;justify-content:center;background:none;border:none;padding:0;cursor:pointer;position:relative;z-index:2}
+.bcol i{display:block;width:70%;max-width:24px;background:color-mix(in srgb,var(--exp) 42%,var(--panel));border-radius:4px 4px 0 0}
+.bcol.sel i,.bcol:hover i,.bcol:focus-visible i{background:var(--exp)}
+.bcol .lbl{position:absolute;bottom:calc(var(--h) + 3px);font-size:10px;font-weight:600;color:var(--ink);white-space:nowrap}
+.xlabels{display:flex;gap:2px;margin-top:5px}
+.xlabels span{flex:1 0 28px;text-align:center;font-size:10px;color:var(--ink3);line-height:1.25}
+.xlabels span.sel{color:var(--ink);font-weight:600}
+.cmpnote{font-size:11px;color:var(--ink3);margin-top:8px}
+.cmpdetail{margin:10px 14px 0;padding:13px 14px}
+.cmpdetail .t{font-size:12.5px;color:var(--ink2)}
+.cmpdetail .v{font-size:22px;font-weight:600;margin:2px 0}
+.cmpdetail .s{font-size:12.5px;color:var(--ink2);line-height:1.5}
+.cmpdetail .btn{margin:10px 0 0;min-height:40px;padding:9px;font-size:11.5px}
+.ctip{position:fixed;z-index:50;background:var(--chrome);color:#fff;font-size:12px;padding:7px 9px;border-radius:6px;pointer-events:none;white-space:nowrap;box-shadow:0 4px 14px -4px rgba(0,0,0,.4)}
+.ctip b{display:block;font-size:13px;font-weight:600}
+.hmwrap{margin:0 14px;overflow-x:auto;background:var(--panel);border:1px solid var(--rule)}
+.hm{border-collapse:separate;border-spacing:2px;font-size:11.5px;font-variant-numeric:tabular-nums}
+.hm th{font-weight:600;color:var(--ink3);font-size:10.5px;padding:6px 4px;white-space:nowrap;text-align:center;line-height:1.25}
+.hm th.selcol{color:var(--ink)}
+.hm .cat{position:sticky;left:0;z-index:1;background:var(--panel);box-shadow:3px 0 0 var(--panel),4px 0 0 var(--rule2);text-align:left;min-width:108px;max-width:124px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:7px 6px 7px 4px;color:var(--ink);font-weight:500}
+.hm td.cat{cursor:pointer}
+.hm td.cat .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.hm tr.hl td.cat{font-weight:700}
+.hm td{padding:7px 5px;text-align:right;min-width:46px;border-radius:3px;white-space:nowrap}
+.hm td.v{cursor:pointer}
+.hm td.zero{color:var(--ink3);text-align:center}
+.hm tr.tot td{font-weight:600;border-top:1px solid var(--rule)}
+.hm td.avg{color:var(--ink2);font-weight:600}
+.hmkey{display:flex;align-items:center;gap:8px;margin:8px 14px 0;font-size:11px;color:var(--ink3)}
+.hmkey i{display:block;width:90px;height:8px;border-radius:4px;background:linear-gradient(90deg,color-mix(in srgb,var(--exp) 8%,var(--panel)),var(--exp))}
 .adminalert{margin:14px;padding:12px 14px;background:var(--warn2);border:1px solid var(--warn);color:var(--ink);font-size:13px;font-weight:600;cursor:pointer}
 .catgrid{display:flex;flex-wrap:wrap;gap:8px}
 .catchip{border:1.4px solid var(--rule);background:var(--panel);padding:8px 12px;border-radius:20px;
@@ -330,6 +384,21 @@ h2.sec:first-child{margin-top:14px}
     <div id="catvList"></div>
   </div>
 
+  <!-- ============ COMPARAR MESES ============ -->
+  <div class="screen" id="scr-cmp">
+    <div class="cmpfilters">
+      <div class="rangeseg" id="cmpRange">
+        <button data-r="6">6 meses</button><button data-r="12">12 meses</button><button data-r="all">Tudo</button>
+      </div>
+      <select id="cmpCat" aria-label="Categoria"></select>
+    </div>
+    <div id="cmpKpis"></div>
+    <div id="cmpChart"></div>
+    <div id="cmpDetail"></div>
+    <h2 class="sec">Todas as categorias, mês a mês</h2>
+    <div id="cmpTable"></div>
+  </div>
+
   <!-- ============ ORÇAMENTO ============ -->
   <div class="screen" id="scr-bud">
     <div class="monthbar">
@@ -385,12 +454,15 @@ h2.sec:first-child{margin-top:14px}
     <div id="adminList"></div>
   </div>
 
+  <div class="ctip hidden" id="ctip" role="tooltip"></div>
+
   <button class="fab" id="fab">+ Novo lançamento</button>
 
   <nav class="nav"><div class="app-in">
     <button data-sc="dash" class="on"><span class="ic">⌂</span><span class="lb">Início</span></button>
     <button data-sc="tx"><span class="ic">≡</span><span class="lb">Lançamentos</span></button>
     <button data-sc="catv"><span class="ic">▦</span><span class="lb">Categorias</span></button>
+    <button data-sc="cmp"><span class="ic">▥</span><span class="lb">Comparar</span></button>
     <button data-sc="bud"><span class="ic">◎</span><span class="lb">Orçamento</span></button>
     <button data-sc="set"><span class="ic">⚙</span><span class="lb">Ajustes</span></button>
   </div></nav>
@@ -585,6 +657,7 @@ $('#themeTg').onclick=()=>{
 
 /* ---------------- navegação ---------------- */
 function goToScreen(sc){
+  hideTip();
   activeScreen = sc;
   $$('.nav button').forEach(x=>x.classList.toggle('on', x.dataset.sc===sc));
   $$('.screen').forEach(s=>s.classList.toggle('on', s.id==='scr-'+sc));
@@ -653,6 +726,7 @@ function render(){
   if(activeScreen==='dash') renderDash();
   else if(activeScreen==='tx') renderTx();
   else if(activeScreen==='catv') renderCatView();
+  else if(activeScreen==='cmp') renderCompare();
   else if(activeScreen==='bud') renderBudget();
   else if(activeScreen==='set') renderSettings();
   else if(activeScreen==='admin') renderAdmin();
@@ -817,6 +891,192 @@ function renderCatView(){
   $('#catvList').innerHTML = section('expense','Despesas') + section('income','Receitas');
   bindTxRows('#catvList');
 }
+
+/* ---------------- COMPARAR MESES ---------------- */
+let cmpRange = '12';
+let cmpCat = '';
+let cmpSel = null;
+
+function ymOf(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+function ymLabel(ym, long){
+  const [y,m] = ym.split('-').map(Number);
+  return long ? MESES[m-1]+' de '+y : MESES_ABR[m-1];
+}
+function fmtCompact(v){
+  if(v>=1000) return (v/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})+' mil';
+  return Math.round(v).toLocaleString('pt-BR');
+}
+function pctText(cur, ref){
+  if(!ref) return '';
+  const d = Math.round((cur-ref)/ref*100);
+  return d===0 ? 'igual' : (d>0 ? `▲ ${d}% a mais` : `▼ ${-d}% a menos`);
+}
+function cmpMonths(){
+  const dates = DB.transactions.filter(t=>t.type==='expense' && t.date).map(t=>t.date.slice(0,7));
+  if(!dates.length) return [];
+  const first = dates.reduce((a,b)=>b<a?b:a);
+  const last = [ymOf(new Date()), ...dates].reduce((a,b)=>b>a?b:a);
+  const [ly,lm] = last.split('-').map(Number);
+  const limit = cmpRange==='all' ? Infinity : Number(cmpRange);
+  const out = [];
+  for(let d = new Date(ly, lm-1, 1); out.length<limit; d.setMonth(d.getMonth()-1)){
+    const k = ymOf(d); out.unshift(k);
+    if(k<=first) break;
+  }
+  return out;
+}
+function niceTicks(max){
+  if(max<=0) return [0,100];
+  const raw = max/3, p = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1,2,2.5,5,10].map(x=>x*p).find(s=>s>=raw);
+  const ticks = [0];
+  while(ticks[ticks.length-1] < max) ticks.push(ticks[ticks.length-1]+step);
+  return ticks;
+}
+function hideTip(){ $('#ctip').classList.add('hidden'); }
+
+function renderCompare(){
+  hideTip();
+  const expCats = DB.categories.filter(c=>c.type==='expense');
+  if(cmpCat && !expCats.some(c=>c.id===cmpCat)) cmpCat = '';
+  $('#cmpCat').innerHTML = `<option value="">Todas as despesas</option>` +
+    expCats.map(c=>`<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  $('#cmpCat').value = cmpCat;
+  $$('#cmpRange button').forEach(b=>b.classList.toggle('on', b.dataset.r===cmpRange));
+
+  const months = cmpMonths();
+  if(!months.length){
+    $('#cmpKpis').innerHTML = '';
+    $('#cmpChart').innerHTML = `<div class="empty"><b>Nada para comparar ainda</b>Os meses aparecem aqui assim que você lançar despesas.</div>`;
+    $('#cmpDetail').innerHTML = ''; $('#cmpTable').innerHTML = '';
+    return;
+  }
+
+  const byMonth = {};
+  DB.transactions.forEach(t=>{
+    if(t.type!=='expense' || !t.date) return;
+    const m = byMonth[t.date.slice(0,7)] = byMonth[t.date.slice(0,7)] || {};
+    m[t.categoryId] = (m[t.categoryId]||0) + t.amount;
+  });
+  const val = (ym, cat)=>{ const m = byMonth[ym]||{}; return cat ? (m[cat]||0) : Object.values(m).reduce((s,v)=>s+v,0); };
+  const curYm = ymOf(new Date());
+  const isOpen = ym => ym>=curYm;
+  // média, maior e menor: só meses fechados (o mês corrente ainda está em andamento)
+  // e só a partir do primeiro mês com gasto (meses antes de a categoria existir não contam como zero)
+  const closedOf = list => {
+    const k = list.findIndex(x=>x.v>0);
+    const from = k<0 ? list : list.slice(k);
+    const c = from.filter(x=>!isOpen(x.ym));
+    return c.length ? c : from;
+  };
+
+  const series = months.map(ym=>({ym, v:val(ym, cmpCat)}));
+  if(!cmpSel || !months.includes(cmpSel)) cmpSel = months.filter(m=>m<=curYm).pop() || months[months.length-1];
+  const base = closedOf(series);
+  const avg = base.reduce((s,x)=>s+x.v,0)/base.length;
+  const hi = base.reduce((a,b)=>b.v>a.v?b:a), lo = base.reduce((a,b)=>b.v<a.v?b:a);
+  const total = series.reduce((s,x)=>s+x.v,0);
+  const nClosed = base.filter(x=>!isOpen(x.ym)).length;
+  const cat = cmpCat ? catById(cmpCat) : null;
+
+  $('#cmpKpis').innerHTML = `<div class="kpis">
+    <div class="kpi"><div class="t">Média por mês</div><div class="v">${fmtBRL(avg)}</div><div class="s">${nClosed ? nClosed+' '+(nClosed>1?'meses fechados':'mês fechado') : 'só o mês atual'}</div></div>
+    <div class="kpi"><div class="t">Total no período</div><div class="v">${fmtBRL(total)}</div><div class="s">${months.length} ${months.length>1?'meses':'mês'}</div></div>
+    <div class="kpi"><div class="t">Mês mais caro</div><div class="v">${fmtBRL(hi.v)}</div><div class="s">${ymLabel(hi.ym,true)}</div></div>
+    <div class="kpi"><div class="t">Mês mais barato</div><div class="v">${fmtBRL(lo.v)}</div><div class="s">${ymLabel(lo.ym,true)}</div></div>
+  </div>`;
+
+  const ticks = niceTicks(Math.max(...series.map(s=>s.v)));
+  const top = ticks[ticks.length-1];
+  const pos = v => (v/top*100).toFixed(2)+'%';
+  const bars = series.map(s=>{
+    const sel = s.ym===cmpSel;
+    return `<button class="bcol ${sel?'sel':''}" data-ym="${s.ym}" style="--h:${pos(s.v)}" aria-label="${ymLabel(s.ym,true)}: ${fmtBRL(s.v)}">
+      <i style="height:${pos(s.v)};min-height:${s.v>0?2:0}px"></i>${sel && s.v>0 ? `<span class="lbl">${fmtCompact(s.v)}</span>` : ''}</button>`;
+  }).join('');
+  const xl = series.map((s,i)=>{
+    const showYear = i===0 || s.ym.endsWith('-01');
+    return `<span class="${s.ym===cmpSel?'sel':''}">${ymLabel(s.ym)}${isOpen(s.ym)?'*':''}${showYear ? '<br>'+s.ym.slice(0,4) : ''}</span>`;
+  }).join('');
+  $('#cmpChart').innerHTML = `<div class="cmpchart card">
+    <div class="ttl">${cat ? `<span class="dot" style="background:${cat.color}"></span>${escapeHtml(cat.name)}` : 'Despesas'} por mês</div>
+    <div class="cmpplot">
+      <div class="yaxis">${ticks.map(t=>`<span style="bottom:${pos(t)}">${fmtCompact(t)}</span>`).join('')}</div>
+      <div class="cmpscroll"><div class="cmpinner" style="width:${months.length*30}px">
+        <div class="cmpbars">
+          ${ticks.map(t=>`<div class="grid" style="bottom:${pos(t)}"></div>`).join('')}
+          ${base.length>1 ? `<div class="avgline" style="bottom:${pos(avg)}"><span>média ${fmtCompact(avg)}</span></div>` : ''}
+          ${bars}
+        </div>
+        <div class="xlabels">${xl}</div>
+      </div></div>
+    </div>
+    ${months.some(isOpen) ? `<div class="cmpnote">* mês em andamento, fora da média</div>` : ''}
+  </div>`;
+
+  const i = months.indexOf(cmpSel), selV = series[i].v, prev = i>0 ? series[i-1] : null;
+  const parts = [];
+  if(prev) parts.push(prev.v ? `${pctText(selV, prev.v)} que ${ymLabel(prev.ym,true).toLowerCase()}` : `${ymLabel(prev.ym,true)} não teve gastos${cat?' nesta categoria':''}`);
+  if(base.length>1 && avg) parts.push(pctText(selV, avg).replace('a mais','acima').replace('a menos','abaixo') + ' da média');
+  $('#cmpDetail').innerHTML = `<div class="cmpdetail card">
+    <div class="t">${ymLabel(cmpSel,true)}${isOpen(cmpSel)?' (em andamento)':''}${cat?' · '+escapeHtml(cat.name):''}</div>
+    <div class="v">${fmtBRL(selV)}</div>
+    <div class="s">${parts.join('<br>') || 'Primeiro mês com lançamentos.'}</div>
+    <button class="btn gh" id="cmpGoTx">Ver lançamentos deste mês</button>
+  </div>`;
+  $('#cmpGoTx').onclick=()=>{
+    const [y,m] = cmpSel.split('-').map(Number);
+    currentMonth = new Date(y, m-1, 1);
+    goToScreen(cmpCat ? 'catv' : 'tx'); render();
+  };
+
+  $$('#cmpChart .bcol').forEach(b=>{
+    b.onclick=()=>{ cmpSel = b.dataset.ym; renderCompare(); };
+    const show = ()=>{
+      const k = months.indexOf(b.dataset.ym), s = series[k], pv = k>0 ? series[k-1] : null;
+      const tip = $('#ctip');
+      tip.innerHTML = `${ymLabel(s.ym,true)}<b>${fmtBRL(s.v)}</b>${pv && pv.v ? pctText(s.v, pv.v)+' que o mês anterior' : ''}`;
+      tip.classList.remove('hidden');
+      const r = b.querySelector('i').getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+      tip.style.left = Math.max(8, Math.min(innerWidth-w-8, r.left + r.width/2 - w/2)) + 'px';
+      tip.style.top = Math.max(8, r.top - h - 8) + 'px';
+    };
+    b.onmouseenter = show; b.onfocus = show;
+    b.onmouseleave = hideTip; b.onblur = hideTip;
+  });
+
+  // tabela de calor: categoria × mês (é também a versão em tabela do gráfico)
+  const rows = expCats.map(c=>{
+    const vals = months.map(ym=>val(ym, c.id));
+    const rb = closedOf(months.map((ym,k)=>({ym, v:vals[k]})));
+    return {c, vals, total: vals.reduce((s,v)=>s+v,0), avg: rb.reduce((s,x)=>s+x.v,0)/rb.length};
+  }).filter(r=>r.total>0).sort((a,b)=>b.total-a.total);
+  const maxCell = Math.max(1, ...rows.flatMap(r=>r.vals));
+  const head = months.map((ym,k)=>`<th class="${ym===cmpSel?'selcol':''}">${ymLabel(ym)}${isOpen(ym)?'*':''}${k===0||ym.endsWith('-01') ? '<br>'+ym.slice(0,4) : ''}</th>`).join('');
+  const cell = (v, ym, c)=>{
+    if(!v) return `<td class="zero v" data-ym="${ym}" data-cat="${c.id}">–</td>`;
+    const p = Math.round(8 + 72*v/maxCell);
+    return `<td class="v" data-ym="${ym}" data-cat="${c.id}" title="${escapeHtml(c.name)} · ${ymLabel(ym,true)}: ${fmtBRL(v)}"
+      style="background:color-mix(in srgb,var(--exp) ${p}%,var(--panel));color:${p>46?'#fff':'var(--ink)'}">${fmtCompact(v)}</td>`;
+  };
+  const totals = months.map(ym=>val(ym,''));
+  $('#cmpTable').innerHTML = `<div class="hmwrap" id="hmwrap"><table class="hm">
+    <thead><tr><th class="cat">Categoria</th>${head}<th>Média</th></tr></thead>
+    <tbody>
+      ${rows.map(r=>`<tr class="${r.c.id===cmpCat?'hl':''}"><td class="cat" data-cat="${r.c.id}"><span class="dot" style="background:${r.c.color}"></span>${escapeHtml(r.c.name)}</td>
+        ${r.vals.map((v,k)=>cell(v, months[k], r.c)).join('')}<td class="avg">${fmtCompact(r.avg)}</td></tr>`).join('')}
+      <tr class="tot"><td class="cat">Total</td>${totals.map(v=>`<td>${v?fmtCompact(v):'–'}</td>`).join('')}<td class="avg">${fmtCompact(closedOf(months.map((ym,k)=>({ym,v:totals[k]}))).reduce((s,x,_,a)=>s+x.v/a.length,0))}</td></tr>
+    </tbody></table></div>
+    <div class="hmkey">menos <i></i> mais gasto · toque numa categoria para ver no gráfico</div>`;
+  $$('#cmpTable td.cat[data-cat]').forEach(td=>td.onclick=()=>{ cmpCat = cmpCat===td.dataset.cat ? '' : td.dataset.cat; renderCompare(); });
+  $$('#cmpTable td.v').forEach(td=>td.onclick=()=>{ cmpCat = td.dataset.cat; cmpSel = td.dataset.ym; renderCompare(); $('#cmpChart').scrollIntoView({behavior:'smooth', block:'start'}); });
+
+  const sc = $('#cmpChart .cmpscroll'); if(sc) sc.scrollLeft = sc.scrollWidth;
+  const hw = $('#hmwrap'); if(hw) hw.scrollLeft = hw.scrollWidth;
+}
+$$('#cmpRange button').forEach(b=>b.onclick=()=>{ cmpRange = b.dataset.r; renderCompare(); });
+$('#cmpCat').onchange = e=>{ cmpCat = e.target.value; renderCompare(); };
+window.addEventListener('scroll', hideTip, {passive:true});
 
 /* ---------------- ORÇAMENTO ---------------- */
 function renderBudget(){
