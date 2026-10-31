@@ -231,6 +231,9 @@ h2.sec:first-child{margin-top:14px}
 .reqrow .dt{font-size:11.5px;color:var(--ink3);margin-top:2px}
 .reqrow .acts{display:flex;gap:8px;margin-top:10px}
 .reqrow .acts .btn{margin:0;min-height:38px;padding:8px;font-size:11.5px}
+.reqrow .acts select{flex:0 0 auto;min-height:38px;padding:6px 8px;border:1px solid var(--rule);border-radius:8px;background:var(--panel);font-size:13px}
+.reqrow .exp{font-size:12px;margin-top:4px;color:var(--ink2)}
+.reqrow .exp.soon{color:var(--exp);font-weight:600}
 /* ---------- comparar meses ---------- */
 #scr-cmp{--cmpc:var(--exp)}
 #scr-cmp.inc{--cmpc:var(--inc)}
@@ -453,7 +456,7 @@ h2.sec:first-child{margin-top:14px}
   <div class="screen" id="scr-admin">
     <div class="pad" style="padding-bottom:0">
       <button class="btn gh" id="adminBack" style="margin-bottom:4px">‹ Voltar para Ajustes</button>
-      <p class="hint">Cada pessoa pede acesso na tela de entrada. A conta só consegue usar o app depois que você aprovar aqui. Você vê nome, e-mail e situação, nunca os lançamentos.</p>
+      <p class="hint">Cada pessoa pede acesso na tela de entrada. A conta só consegue usar o app depois que você aprovar aqui, pelo prazo que escolher. Quando o prazo vence, o acesso para sozinho e os lançamentos ficam guardados até você renovar. Você vê nome, e-mail e situação, nunca os lançamentos.</p>
     </div>
     <div id="adminList"></div>
   </div>
@@ -1402,6 +1405,7 @@ function showGate(kind){
   const texts = {
     pending: ['Pedido enviado', `A conta ${authEmail} está aguardando aprovação. Assim que for aprovada, o app abre sozinho.`],
     rejected: ['Acesso não liberado', `O acesso da conta ${authEmail} não foi aprovado.`],
+    expired: ['Acesso vencido', `O prazo de acesso da conta ${authEmail} terminou em ${fmtDay(ownAccess && ownAccess.expiresAt)}. Peça ao administrador para renovar; seus lançamentos continuam guardados.`],
     verify: ['Confirme seu e-mail', `Para entrar como administrador, confirme o e-mail ${authEmail}. Toque no botão abaixo, abra o link que chegar no seu e-mail e depois toque em "Verificar de novo".`]
   };
   $('#gateTitle').textContent = texts[kind][0];
@@ -1555,6 +1559,13 @@ async function dailyBackup(u, gen){
 
 /* Pedido de acesso: access_requests/{uid} com status pending | approved | rejected.
    Só o administrador muda o status; as regras bloqueiam qualquer dado de quem não foi aprovado. */
+/* Prazo: expiresAt (ms) no pedido aprovado; ausente ou null = sem prazo. As regras do Firestore também conferem o prazo. */
+let ownAccess = null;
+function accessState(d){
+  if(d.status==='rejected') return 'rejected';
+  if(d.status!=='approved') return 'pending';
+  return d.expiresAt && d.expiresAt<=Date.now() ? 'expired' : 'ok';
+}
 async function checkAccess(user){
   if(isAdminUser()) return user.emailVerified ? 'ok' : 'verify';
   const ref = fb.doc(fb.dbFs,'access_requests',user.uid);
@@ -1566,15 +1577,23 @@ async function checkAccess(user){
     pendingSignupName = '';
     return 'pending';
   }
-  const st = s.data().status;
-  return st==='approved' ? 'ok' : (st==='rejected' ? 'rejected' : 'pending');
+  ownAccess = s.data();
+  return accessState(ownAccess);
 }
 
-function watchOwnRequest(u, gen){
+/* Reabre o fluxo quando o administrador muda a situação da conta (aprova, renova, revoga)
+   ou quando o prazo vence com o app aberto. */
+function watchOwnRequest(u, gen, current){
   listeners.push(fb.onSnapshot(fb.doc(fb.dbFs,'access_requests',u), s=>{
     if(gen!==authGen || !s.exists() || s.metadata.hasPendingWrites || s.metadata.fromCache) return;
-    if(s.data().status!=='pending') onAuthChange(fb.auth.currentUser);
+    ownAccess = s.data();
+    if(accessState(ownAccess)!==current) onAuthChange(fb.auth.currentUser);
   }, ()=>{}));
+  const left = ownAccess && ownAccess.expiresAt ? ownAccess.expiresAt - Date.now() : 0;
+  if(current==='ok' && left>0 && left<20*86400000){
+    const t = setTimeout(()=>{ if(gen===authGen) onAuthChange(fb.auth.currentUser); }, left+1000);
+    listeners.push(()=>clearTimeout(t));
+  }
 }
 
 $('#gateLogout').onclick=()=>{ if(fb) fb.signOut(fb.auth); };
@@ -1611,27 +1630,64 @@ function renderAdminBits(){
 }
 function fmtDate(ms){ return ms ? new Date(ms).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—'; }
 function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtDay(ms){ return ms ? new Date(ms).toLocaleDateString('pt-BR') : '—'; }
+const ACCESS_TERMS = [['30d','30 dias'],['90d','90 dias'],['6m','6 meses'],['12m','1 ano'],['none','Sem prazo']];
+/* Fim do prazo a partir de "from" (ms); null = sem prazo. */
+function termEnd(term, from){
+  if(term==='none') return null;
+  const d = new Date(from);
+  if(term.endsWith('d')) d.setDate(d.getDate() + Number(term.slice(0,-1)));
+  else d.setMonth(d.getMonth() + Number(term.slice(0,-1)));
+  d.setHours(23,59,59,0);
+  return d.getTime();
+}
+function daysLeft(ms){ return Math.ceil((ms - Date.now())/86400000); }
 function renderAdmin(){
+  const now = Date.now();
+  const groupOf = r => r.status==='approved' ? (r.expiresAt && r.expiresAt<=now ? 'expired' : 'approved') : r.status;
+  const termSel = `<select aria-label="Prazo">${ACCESS_TERMS.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select>`;
   const groups = [
-    ['pending','Pedidos pendentes', [['approved','Aprovar','pri'],['rejected','Recusar','gh']]],
-    ['approved','Contas aprovadas', [['rejected','Revogar acesso','gh']]],
-    ['rejected','Recusadas ou revogadas', [['approved','Liberar acesso','gh']]]
+    ['pending','Pedidos pendentes', [['approved','Aprovar','pri'],['rejected','Recusar','gh']], true],
+    ['expired','Acesso vencido', [['approved','Renovar','pri'],['rejected','Bloquear','gh']], true],
+    ['approved','Contas liberadas', [['approved','Renovar','gh'],['rejected','Revogar','gh']], true],
+    ['rejected','Recusadas ou revogadas', [['approved','Liberar','gh']], true]
   ];
-  $('#adminList').innerHTML = groups.map(([st,title,acts])=>{
-    const rows = adminReqs.filter(r=>r.status===st).sort((a,b)=>(b.requestedAt||0)-(a.requestedAt||0));
+  const expLine = r=>{
+    if(r.status!=='approved') return '';
+    if(!r.expiresAt) return `<div class="exp">Sem prazo</div>`;
+    const n = daysLeft(r.expiresAt);
+    if(n<=0) return `<div class="exp soon">Venceu em ${fmtDay(r.expiresAt)}</div>`;
+    return `<div class="exp${n<=7?' soon':''}">Liberado até ${fmtDay(r.expiresAt)} · falta${n>1?'m':''} ${n} dia${n>1?'s':''}</div>`;
+  };
+  $('#adminList').innerHTML = groups.map(([st,title,acts,withTerm])=>{
+    const rows = adminReqs.filter(r=>groupOf(r)===st).sort((a,b)=> st==='approved'
+      ? (a.expiresAt||Infinity)-(b.expiresAt||Infinity) : (b.requestedAt||0)-(a.requestedAt||0));
+    if(st==='expired' && !rows.length) return '';
     return `<h2 class="sec">${title} (${rows.length})</h2>` + (rows.length ? rows.map(r=>`
       <div class="reqrow">
         <div class="nm">${escapeHtml(r.name) || '(sem nome)'}</div>
         <div class="em">${escapeHtml(r.email)}</div>
         <div class="dt">Pedido em ${fmtDate(r.requestedAt)}${r.decidedAt ? ' · decidido em '+fmtDate(r.decidedAt) : ''}</div>
-        <div class="acts">${acts.map(([to,label,cls])=>`<button class="btn ${cls}" data-uid="${r.uid}" data-to="${to}">${label}</button>`).join('')}</div>
+        ${expLine(r)}
+        <div class="acts">${withTerm ? termSel : ''}${acts.map(([to,label,cls])=>`<button class="btn ${cls}" data-uid="${r.uid}" data-to="${to}">${label}</button>`).join('')}</div>
       </div>`).join('') : `<p class="hint" style="padding:0 14px">Nenhuma.</p>`);
   }).join('');
   $$('#adminList [data-to]').forEach(b=>b.onclick=()=>{
     const r = adminReqs.find(x=>x.uid===b.dataset.uid);
-    const msg = {approved:`Liberar o acesso de ${r.email}?`, rejected:`Bloquear o acesso de ${r.email}?`}[b.dataset.to];
+    const upd = {status:b.dataset.to, decidedAt:Date.now()};
+    let msg = `Bloquear o acesso de ${r.email}?`;
+    if(b.dataset.to==='approved'){
+      const term = b.closest('.acts').querySelector('select').value;
+      // renovar uma conta ainda no prazo soma ao prazo atual, sem interromper
+      const active = r.status==='approved' && r.expiresAt && r.expiresAt>Date.now();
+      upd.expiresAt = termEnd(term, active ? r.expiresAt : Date.now());
+      const label = ACCESS_TERMS.find(t=>t[0]===term)[1].toLowerCase();
+      msg = upd.expiresAt
+        ? `Liberar o acesso de ${r.email} por ${label}${active?' a mais':''}, até ${fmtDay(upd.expiresAt)}?`
+        : `Liberar o acesso de ${r.email} sem prazo?`;
+    }
     if(!confirm(msg)) return;
-    fb.updateDoc(fb.doc(fb.dbFs,'access_requests',r.uid), {status:b.dataset.to, decidedAt:Date.now()}).catch(reportWriteError);
+    fb.updateDoc(fb.doc(fb.dbFs,'access_requests',r.uid), upd).catch(reportWriteError);
   });
 }
 $('#btnAdmin').onclick=()=>{ goToScreen('admin'); render(); };
@@ -1662,7 +1718,7 @@ async function onAuthChange(user){
     if(access!=='ok'){
       $('#authMsg').style.display = 'none';
       showGate(access);
-      if(access==='pending') watchOwnRequest(user.uid, gen);
+      if(access==='pending' || access==='expired') watchOwnRequest(user.uid, gen, access);
       return;
     }
     try{
@@ -1679,7 +1735,7 @@ async function onAuthChange(user){
     applyTheme(); renderAdminBits(); render();
     $('#authMsg').style.display = 'none';
     showApp();
-    if(isAdminUser()) startAdminListener(gen);
+    if(isAdminUser()) startAdminListener(gen); else watchOwnRequest(user.uid, gen, 'ok');
     dailyBackup(user.uid, gen);
   }catch(e){
     if(gen!==authGen) return;
