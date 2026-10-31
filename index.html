@@ -239,6 +239,7 @@ h2.sec:first-child{margin-top:14px}
 .rangeseg button{background:var(--panel);border:none;padding:8px 11px;font-size:12.5px;font-weight:600;color:var(--ink3);cursor:pointer}
 .rangeseg button+button{border-left:1px solid var(--rule)}
 .rangeseg button.on{background:var(--chrome);color:#fff}
+#cmpRange{flex:0 0 auto;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;background:var(--panel);font-size:14px}
 #cmpCat{flex:1 1 140px;min-width:0;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;background:var(--panel);font-size:14px}
 .kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 14px}
 .kpi{background:var(--panel);border:1px solid var(--rule);padding:11px 12px;min-width:0}
@@ -392,9 +393,8 @@ h2.sec:first-child{margin-top:14px}
       <div class="rangeseg" id="cmpType">
         <button data-t="expense">Despesas</button><button data-t="income">Receitas</button>
       </div>
-      <div class="rangeseg" id="cmpRange">
-        <button data-r="6">6 meses</button><button data-r="12">12 meses</button><button data-r="all">Tudo</button>
-      </div>
+      <select id="cmpRange" aria-label="Período">
+      </select>
       <select id="cmpCat" aria-label="Categoria"></select>
     </div>
     <div id="cmpKpis"></div>
@@ -954,7 +954,8 @@ function renderCompare(){
   $('#cmpCat').innerHTML = `<option value="">${W.all}</option>` +
     expCats.map(c=>`<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
   $('#cmpCat').value = cmpCat;
-  $$('#cmpRange button').forEach(b=>b.classList.toggle('on', b.dataset.r===cmpRange));
+  $('#cmpRange').innerHTML = [2,3,4,5,6,7,8,9,10,11,12,18,24].map(n=>`<option value="${n}">Últimos ${n} meses</option>`).join('') + `<option value="all">Tudo</option>`;
+  $('#cmpRange').value = cmpRange;
 
   const months = cmpMonths();
   if(!months.length){
@@ -1086,7 +1087,7 @@ function renderCompare(){
   const sc = $('#cmpChart .cmpscroll'); if(sc) sc.scrollLeft = sc.scrollWidth;
   const hw = $('#hmwrap'); if(hw) hw.scrollLeft = hw.scrollWidth;
 }
-$$('#cmpRange button').forEach(b=>b.onclick=()=>{ cmpRange = b.dataset.r; renderCompare(); });
+$('#cmpRange').onchange = e=>{ cmpRange = e.target.value; renderCompare(); };
 $$('#cmpType button').forEach(b=>b.onclick=()=>{ if(cmpType===b.dataset.t) return; cmpType = b.dataset.t; cmpCat = ''; renderCompare(); });
 $('#cmpCat').onchange = e=>{ cmpCat = e.target.value; renderCompare(); };
 window.addEventListener('scroll', hideTip, {passive:true});
