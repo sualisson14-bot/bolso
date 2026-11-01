@@ -1412,7 +1412,8 @@ function openTxModal(tx, pay){
   if(tx && tx.card) $('#instInfo').innerHTML = tx.insts>1
     ? `Parcela <b>${tx.inst} de ${tx.insts}</b> de uma compra de ${fmtBRL(tx.purchaseTotal || parts.reduce((s,x)=>s+x.amount,0))} no cartão. Alterar aqui muda só esta parcela.`
     : `Compra no cartão de crédito, na fatura deste mês.`;
-  $('#payField').classList.toggle('hidden', !!tx || editingTxType!=='expense');
+  // lançamento já existente no cartão não muda de forma; um à vista pode virar compra parcelada
+  $('#payField').classList.toggle('hidden', !!(tx && tx.card) || editingTxType!=='expense');
   $('#txInst').value = '1'; $('#txFirst').value = '0';
   setPay(!tx && pay==='card' ? 'card' : 'cash');
   renderTxCatGrid();
@@ -1445,7 +1446,8 @@ $$('.seg [data-tt]').forEach(b=>b.onclick=()=>{
   $('.seg [data-tt].on').classList.add(editingTxType==='income'?'inc':'exp');
   $$('.seg [data-tt]').forEach(x=>{ if(x!==b){ x.classList.remove('inc','exp'); }});
   editingTxCat = null;
-  if(!editingTxId){ $('#payField').classList.toggle('hidden', editingTxType!=='expense'); if(editingTxType!=='expense') setPay('cash'); }
+  const edTx = editingTxId && DB.transactions.find(x=>x.id===editingTxId);
+  if(!(edTx && edTx.card)){ $('#payField').classList.toggle('hidden', editingTxType!=='expense'); if(editingTxType!=='expense') setPay('cash'); }
   renderTxCatGrid();
 });
 $('#txSave').onclick=()=>{
@@ -1456,10 +1458,11 @@ $('#txSave').onclick=()=>{
   if(!editingTxCat){ alert('Selecione uma categoria.'); return; }
   if(!canWrite()) return;
   let t;
-  if(editingTxId){
+  const toCard = editingPay==='card' && editingTxType==='expense';
+  if(editingTxId && !toCard){
     t = DB.transactions.find(x=>x.id===editingTxId);
     Object.assign(t, {type:editingTxType, categoryId:editingTxCat, amount, date, note});
-  } else if(editingPay==='card' && editingTxType==='expense'){
+  } else if(toCard){
     // uma parcela por fatura; os centavos que sobram da divisão vão nas primeiras
     const n = Number($('#txInst').value), first = Number($('#txFirst').value);
     const cents = Math.round(amount*100), base = Math.floor(cents/n), extra = cents - base*n;
@@ -1467,8 +1470,11 @@ $('#txSave').onclick=()=>{
     const parts = Array.from({length:n}, (_,k)=>({id:uid()+k, type:'expense', categoryId:editingTxCat,
       amount:(base + (k<extra?1:0))/100, date:addMonthsISO(date, k+first), note, createdAt:created,
       card:true, purchaseId:pid, inst:k+1, insts:n, purchaseTotal:amount, purchaseDate:date}));
+    // editando um lançamento à vista: ele é substituído pelas parcelas
+    const ops = parts.map(x=>({sub:'tx', id:x.id, data:x}));
+    if(editingTxId){ DB.transactions = DB.transactions.filter(x=>x.id!==editingTxId); ops.push({sub:'tx', id:editingTxId, del:true}); }
     DB.transactions.push(...parts);
-    writeMany(parts.map(x=>({sub:'tx', id:x.id, data:x})));
+    writeMany(ops);
     closeSheet('ovTx');
     if(n>1 || first) alert(`Compra lançada no cartão: ${n}x de ${fmtBRL(parts[parts.length-1].amount)}, de ${ymLabel(parts[0].date.slice(0,7),true).toLowerCase()} a ${ymLabel(parts[n-1].date.slice(0,7),true).toLowerCase()}. Veja em Lançamentos › Cartão de crédito.`);
     render();
