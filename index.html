@@ -147,6 +147,38 @@ h2.sec:first-child{margin-top:14px}
 .empty b{display:block;font-family:'Archivo Narrow',sans-serif;font-size:17px;color:var(--ink2);margin-bottom:7px}
 .empty .btn{max-width:260px;margin:18px auto 0}
 
+/* ---------- cartão de crédito ---------- */
+.subtabs{display:flex;margin:12px 14px 0;border:1px solid var(--rule);border-radius:8px;overflow:hidden}
+.subtabs button{flex:1;background:var(--panel);border:none;padding:9px;font-size:12.5px;font-weight:600;color:var(--ink3);cursor:pointer}
+.subtabs button+button{border-left:1px solid var(--rule)}
+.subtabs button.on{background:var(--chrome);color:#fff}
+.invoice{margin-top:8px}
+.invoice .ih{padding:10px 14px 6px;display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.invoice .ih .m{font-family:'Archivo Narrow',sans-serif;font-size:13px;font-weight:700}
+.invoice .ih .m small{font-weight:400;color:var(--ink3);margin-left:6px;font-size:11.5px}
+.invoice .ih .v{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600}
+.invoice .ibar{margin:0 14px 6px;height:4px;background:var(--rule2);border-radius:2px}
+.invoice .ibar i{display:block;height:100%;background:var(--exp);border-radius:2px}
+.purch{background:var(--panel);border-bottom:1px solid var(--rule2);padding:12px 14px;cursor:pointer}
+.purch .hd{display:flex;align-items:center;gap:9px}
+.purch .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+.purch .nm{flex:1;min-width:0;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.purch .tt{font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--ink2)}
+.purch .bar{margin:8px 0 5px}
+.purch .s{font-size:11.5px;color:var(--ink3)}
+.cardsum{margin:14px;padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:10px}
+.cardsum .g{flex:1;min-width:0}
+.cardsum .t{font-family:'Archivo Narrow',sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
+.cardsum .v{font-size:16px;font-weight:600;margin-top:2px}
+.cardsum .s{font-size:11.5px;color:var(--ink2);margin-top:1px}
+.cardsum .go{color:var(--ink3);font-size:20px}
+.field select{width:100%;padding:11px 12px;border:1px solid var(--rule);border-radius:8px;background:var(--paper);color:var(--ink);font-size:15px}
+.payseg{display:flex;border:1px solid var(--rule);border-radius:8px;overflow:hidden}
+.payseg button{flex:1;background:var(--paper);border:none;padding:10px 6px;font-size:13px;font-weight:600;color:var(--ink3);cursor:pointer}
+.payseg button+button{border-left:1px solid var(--rule)}
+.payseg button.on{background:var(--chrome);color:#fff}
+.instbox{background:var(--paper);border:1px solid var(--rule);border-radius:8px;padding:10px 12px;margin:-4px 0 14px;font-size:12.5px;color:var(--ink2);line-height:1.5}
+
 /* ---------- orçamento (categorias) ---------- */
 .catrow{background:var(--panel);border-bottom:1px solid var(--rule2);padding:13px 14px;cursor:pointer}
 .catrow .hd{display:flex;align-items:center;gap:9px;margin-bottom:8px}
@@ -357,6 +389,7 @@ h2.sec:first-child{margin-top:14px}
 
     <div id="dashAdminAlert"></div>
     <div id="dashBudget"></div>
+    <div id="dashCard"></div>
     <div id="dashDonut"></div>
     <div id="dashTrend"></div>
 
@@ -366,6 +399,7 @@ h2.sec:first-child{margin-top:14px}
 
   <!-- ============ LANÇAMENTOS ============ -->
   <div class="screen" id="scr-tx">
+    <div class="subtabs"><button class="on" data-sub="tx">Lançamentos do mês</button><button data-sub="card">Cartão de crédito</button></div>
     <div class="monthbar">
       <button data-mv="-1">‹</button>
       <span class="lb" id="mLabel2"></span>
@@ -377,6 +411,12 @@ h2.sec:first-child{margin-top:14px}
       <button class="chip" data-f="expense">Despesas</button>
     </div>
     <div id="txList"></div>
+  </div>
+
+  <!-- ============ CARTÃO DE CRÉDITO (parcelas futuras) ============ -->
+  <div class="screen" id="scr-card">
+    <div class="subtabs"><button data-sub="tx">Lançamentos do mês</button><button class="on" data-sub="card">Cartão de crédito</button></div>
+    <div id="cardBody"></div>
   </div>
 
   <!-- ============ POR CATEGORIA ============ -->
@@ -495,8 +535,20 @@ h2.sec:first-child{margin-top:14px}
         <label>Descrição (opcional)</label>
         <input type="text" id="txNote" placeholder="Ex.: Mercado, Uber, Aluguel...">
       </div>
+      <div class="field" id="payField">
+        <label>Forma de pagamento</label>
+        <div class="payseg"><button class="on" data-pay="cash">À vista / débito / Pix</button><button data-pay="card">Cartão de crédito</button></div>
+      </div>
+      <div id="cardFields" class="hidden">
+        <div class="field"><label>Parcelas</label><select id="txInst"></select></div>
+        <div class="field"><label>Primeira parcela</label>
+          <select id="txFirst"><option value="0">Na fatura do mês da compra</option><option value="1">Na fatura do mês seguinte</option></select></div>
+        <div class="instbox" id="instPreview"></div>
+      </div>
+      <div class="instbox hidden" id="instInfo"></div>
       <button class="btn pri" id="txSave">Salvar</button>
       <button class="btn danger" id="txDelete" style="display:none">Excluir lançamento</button>
+      <button class="btn gh" id="txDeleteAll" style="display:none;margin-top:8px">Excluir a compra inteira</button>
     </div>
   </div>
 
@@ -666,9 +718,9 @@ $('#themeTg').onclick=()=>{
 function goToScreen(sc){
   hideTip();
   activeScreen = sc;
-  $$('.nav button').forEach(x=>x.classList.toggle('on', x.dataset.sc===sc));
+  $$('.nav button').forEach(x=>x.classList.toggle('on', x.dataset.sc===(sc==='card'?'tx':sc)));
   $$('.screen').forEach(s=>s.classList.toggle('on', s.id==='scr-'+sc));
-  $('#fab').style.display = (sc==='dash'||sc==='tx') ? '' : 'none';
+  $('#fab').style.display = (sc==='dash'||sc==='tx'||sc==='card') ? '' : 'none';
 }
 $$('.nav button').forEach(b=>b.onclick=()=>{
   goToScreen(b.dataset.sc);
@@ -727,6 +779,87 @@ maskCurrencyInput($('#txAmount'));
 maskCurrencyInput($('#catBudget'));
 
 /* ---------------- render raiz ---------------- */
+/* ---------------- CARTÃO DE CRÉDITO ----------------
+   Compra parcelada = um lançamento por parcela, cada um no mês da sua fatura,
+   ligados por purchaseId (inst = número da parcela, insts = total de parcelas). */
+let editingPay = 'cash';
+function addMonthsISO(iso, k){
+  const [y,m,d] = iso.split('-').map(Number);
+  const last = new Date(y, m-1+k+1, 0).getDate();
+  const dt = new Date(y, m-1+k, Math.min(d, last));
+  return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+}
+function cardTx(){ return DB.transactions.filter(t=>t.card && t.type==='expense'); }
+function purchaseParts(t){ return t.purchaseId ? DB.transactions.filter(x=>x.purchaseId===t.purchaseId).sort((a,b)=>a.inst-b.inst) : [t]; }
+
+function renderCard(){
+  const cur = ymOf(new Date());
+  const up = cardTx().filter(t=>t.date.slice(0,7)>=cur);
+  if(!up.length){
+    $('#cardBody').innerHTML = `<div class="empty"><b>Nenhuma parcela a pagar</b>Ao lançar uma despesa, escolha "Cartão de crédito" e o número de parcelas. Cada parcela aparece aqui, na fatura do mês em que cai.<button class="btn pri" id="cardNew">Lançar compra no cartão</button></div>`;
+    $('#cardNew').onclick=()=>openTxModal(null, 'card');
+    return;
+  }
+  const byYm = {};
+  up.forEach(t=>{ (byYm[t.date.slice(0,7)] = byYm[t.date.slice(0,7)] || []).push(t); });
+  const yms = Object.keys(byYm).sort();
+  const tot = ym => byYm[ym].reduce((s,t)=>s+t.amount,0);
+  const maxInv = Math.max(...yms.map(tot));
+  const total = up.reduce((s,t)=>s+t.amount,0);
+  const curInv = byYm[cur] ? tot(cur) : 0;
+
+  const pids = [...new Set(up.filter(t=>t.purchaseId && t.insts>1).map(t=>t.purchaseId))];
+  const purchases = pids.map(pid=>{
+    const parts = DB.transactions.filter(t=>t.purchaseId===pid).sort((a,b)=>a.inst-b.inst);
+    const left = parts.filter(t=>t.date.slice(0,7)>=cur);
+    return {parts, left, first:parts[0], rest:left.reduce((s,t)=>s+t.amount,0), total:parts.reduce((s,t)=>s+t.amount,0)};
+  }).sort((a,b)=>a.left[a.left.length-1].date.localeCompare(b.left[b.left.length-1].date));
+
+  $('#cardBody').innerHTML = `<div class="kpis">
+      <div class="kpi"><div class="t">Fatura de ${MESES[new Date().getMonth()].toLowerCase()}</div><div class="v">${fmtBRL(curInv)}</div><div class="s">${byYm[cur] ? byYm[cur].length+' lançamento'+(byYm[cur].length>1?'s':'') : 'nada neste mês'}</div></div>
+      <div class="kpi"><div class="t">Total a pagar</div><div class="v">${fmtBRL(total)}</div><div class="s">até ${ymLabel(yms[yms.length-1],true).toLowerCase()}</div></div>
+    </div>
+    <h2 class="sec">Faturas</h2>
+    ${yms.map(ym=>`<div class="invoice">
+      <div class="ih"><span class="m">${ymLabel(ym,true)}${ym===cur?'<small>fatura atual</small>':''}</span><span class="v">${fmtBRL(tot(ym))}</span></div>
+      <div class="ibar"><i style="width:${(tot(ym)/maxInv*100).toFixed(1)}%"></i></div>
+      ${byYm[ym].sort((a,b)=>a.date.localeCompare(b.date)).map(txRowHtml).join('')}
+    </div>`).join('')}
+    ${purchases.length ? `<h2 class="sec">Compras parceladas em andamento</h2>` + purchases.map(p=>{
+      const c = catById(p.first.categoryId), paid = p.parts.length - p.left.length;
+      return `<div class="purch" data-id="${p.left[0].id}">
+        <div class="hd"><span class="dot" style="background:${c?c.color:'#999'}"></span><span class="nm">${escapeHtml(p.first.note || (c?c.name:'Compra'))}</span><span class="tt">${p.parts.length}x ${fmtBRL(p.first.amount)}</span></div>
+        <div class="bar"><i style="width:${(paid/p.parts.length*100).toFixed(1)}%"></i></div>
+        <div class="s">${paid} de ${p.parts.length} parcelas pagas · faltam ${fmtBRL(p.rest)} de ${fmtBRL(p.total)} · última em ${ymLabel(p.left[p.left.length-1].date.slice(0,7),true).toLowerCase()}</div>
+      </div>`;
+    }).join('') : ''}
+    <p class="hint" style="padding:14px">As parcelas entram nas despesas do mês de cada fatura, no Início, no Orçamento e no Comparar.</p>`;
+  bindTxRows('#cardBody');
+  $$('#cardBody .purch').forEach(el=>el.onclick=()=>openTxModal(DB.transactions.find(t=>t.id===el.dataset.id)));
+}
+$$('.subtabs [data-sub]').forEach(b=>b.onclick=()=>{ goToScreen(b.dataset.sub); render(); });
+
+function updateInstPreview(){
+  const amount = parseFloat($('#txAmount').dataset.value || '0');
+  const n = Number($('#txInst').value), first = Number($('#txFirst').value);
+  const date = $('#txDate').value || todayISO();
+  const lastYm = addMonthsISO(date, n-1+first).slice(0,7), firstYm = addMonthsISO(date, first).slice(0,7);
+  const each = amount>0 ? fmtBRL(Math.floor(Math.round(amount*100)/n)/100) : 'R$ 0,00';
+  $('#instPreview').innerHTML = n>1
+    ? `<b>${n}x de ${each}</b> · de ${ymLabel(firstYm,true).toLowerCase()} a ${ymLabel(lastYm,true).toLowerCase()}`
+    : `Parcela única na fatura de ${ymLabel(firstYm,true).toLowerCase()}`;
+}
+function setPay(pay){
+  editingPay = pay;
+  $$('.payseg [data-pay]').forEach(b=>b.classList.toggle('on', b.dataset.pay===pay));
+  $('#cardFields').classList.toggle('hidden', pay!=='card');
+  if(pay==='card') updateInstPreview();
+}
+$('#txInst').innerHTML = Array.from({length:24},(_,i)=>`<option value="${i+1}">${i+1}x${i===0?' (sem parcelar)':''}</option>`).join('');
+$$('.payseg [data-pay]').forEach(b=>b.onclick=()=>setPay(b.dataset.pay));
+['#txInst','#txFirst','#txDate'].forEach(sel=>$(sel).addEventListener('change', updateInstPreview));
+['input','keyup','beforeinput','blur'].forEach(ev=>$('#txAmount').addEventListener(ev, ()=>setTimeout(()=>{ if(editingPay==='card') updateInstPreview(); },0)));
+
 function render(){
   const label = MESES[currentMonth.getMonth()]+' de '+currentMonth.getFullYear();
   $('#mLabel1').textContent=label; $('#mLabel2').textContent=label; $('#mLabel3').textContent=label; $('#mLabel4').textContent=label;
@@ -734,6 +867,7 @@ function render(){
   else if(activeScreen==='tx') renderTx();
   else if(activeScreen==='catv') renderCatView();
   else if(activeScreen==='cmp') renderCompare();
+  else if(activeScreen==='card') renderCard();
   else if(activeScreen==='bud') renderBudget();
   else if(activeScreen==='set') renderSettings();
   else if(activeScreen==='admin') renderAdmin();
@@ -797,6 +931,20 @@ function renderDash(){
   }
   $('#dashBudget').innerHTML = budHtml;
 
+  // cartão: fatura do mês e o que ainda vem pela frente
+  const cur = ymOf(new Date());
+  const up = cardTx().filter(t=>t.date.slice(0,7)>=cur);
+  if(up.length){
+    const now = up.filter(t=>t.date.slice(0,7)===cur).reduce((s,t)=>s+t.amount,0);
+    const all = up.reduce((s,t)=>s+t.amount,0);
+    $('#dashCard').innerHTML = `<div class="card cardsum" id="dashCardGo">
+      <div class="g"><div class="t">Cartão de crédito</div>
+        <div class="v">Fatura de ${MESES[new Date().getMonth()].toLowerCase()}: ${fmtBRL(now)}</div>
+        <div class="s">${fmtBRL(all)} a pagar no total, contando as próximas faturas</div></div>
+      <span class="go">›</span></div>`;
+    $('#dashCardGo').onclick=()=>{ goToScreen('card'); render(); };
+  } else $('#dashCard').innerHTML = '';
+
   // donut de categorias (despesas do mês)
   $('#dashDonut').innerHTML = donutHtml(expenseCatSegments(txs), exp, 'gasto');
 
@@ -824,7 +972,8 @@ function renderDash(){
   </div>`;
 
   // últimos lançamentos (globais, não só do mês selecionado)
-  const recent = [...DB.transactions].sort((a,b)=> (b.date+b.createdAt).localeCompare(a.date+a.createdAt)).slice(0,5);
+  const today = todayISO();
+  const recent = DB.transactions.filter(t=>t.date<=today).sort((a,b)=> (b.date+b.createdAt).localeCompare(a.date+a.createdAt)).slice(0,5);
   $('#dashRecent').innerHTML = recent.length ? recent.map(txRowHtml).join('') :
     `<div class="empty"><b>Nenhum lançamento ainda</b>Toque em "Novo lançamento" para começar.</div>`;
   bindTxRows('#dashRecent');
@@ -835,8 +984,8 @@ function txRowHtml(t){
   const [y,m,d] = t.date.split('-');
   return `<div class="tx" data-id="${t.id}">
     <span class="dot" style="background:${c?c.color:'#999'}"></span>
-    <div class="g"><div class="nm">${t.note || (c?c.name:'—')}</div>
-      <div class="cat">${c?c.name:'—'} · ${d}/${m}</div></div>
+    <div class="g"><div class="nm">${escapeHtml(t.note || (c?c.name:'—'))}${t.insts>1 ? ` (${t.inst}/${t.insts})` : ''}</div>
+      <div class="cat">${c?c.name:'—'} · ${d}/${m}${t.card ? ' · cartão' : ''}</div></div>
     <div class="vl ${t.type==='income'?'inc':'exp'}">${t.type==='income'?'+':'-'} ${fmtBRL(t.amount)}</div>
   </div>`;
 }
@@ -1245,7 +1394,7 @@ $('#btnReset').onclick=()=>{
 };
 
 /* ---------------- MODAL: transação ---------------- */
-function openTxModal(tx){
+function openTxModal(tx, pay){
   editingTxId = tx ? tx.id : null;
   editingTxType = tx ? tx.type : 'expense';
   editingTxCat = tx ? tx.categoryId : null;
@@ -1255,6 +1404,17 @@ function openTxModal(tx){
   $('#txDate').value = tx ? tx.date : todayISO();
   $('#txNote').value = tx ? (tx.note||'') : '';
   $('#txDelete').style.display = tx ? '' : 'none';
+  const parts = tx ? purchaseParts(tx) : [];
+  $('#txDelete').textContent = parts.length>1 ? 'Excluir só esta parcela' : 'Excluir lançamento';
+  $('#txDeleteAll').style.display = parts.length>1 ? '' : 'none';
+  $('#txDeleteAll').textContent = `Excluir a compra inteira (${parts.length} parcelas)`;
+  $('#instInfo').classList.toggle('hidden', !(tx && tx.card));
+  if(tx && tx.card) $('#instInfo').innerHTML = tx.insts>1
+    ? `Parcela <b>${tx.inst} de ${tx.insts}</b> de uma compra de ${fmtBRL(tx.purchaseTotal || parts.reduce((s,x)=>s+x.amount,0))} no cartão. Alterar aqui muda só esta parcela.`
+    : `Compra no cartão de crédito, na fatura deste mês.`;
+  $('#payField').classList.toggle('hidden', !!tx || editingTxType!=='expense');
+  $('#txInst').value = '1'; $('#txFirst').value = '0';
+  setPay(!tx && pay==='card' ? 'card' : 'cash');
   renderTxCatGrid();
   openSheet('ovTx');
 }
@@ -1285,6 +1445,7 @@ $$('.seg [data-tt]').forEach(b=>b.onclick=()=>{
   $('.seg [data-tt].on').classList.add(editingTxType==='income'?'inc':'exp');
   $$('.seg [data-tt]').forEach(x=>{ if(x!==b){ x.classList.remove('inc','exp'); }});
   editingTxCat = null;
+  if(!editingTxId){ $('#payField').classList.toggle('hidden', editingTxType!=='expense'); if(editingTxType!=='expense') setPay('cash'); }
   renderTxCatGrid();
 });
 $('#txSave').onclick=()=>{
@@ -1298,6 +1459,20 @@ $('#txSave').onclick=()=>{
   if(editingTxId){
     t = DB.transactions.find(x=>x.id===editingTxId);
     Object.assign(t, {type:editingTxType, categoryId:editingTxCat, amount, date, note});
+  } else if(editingPay==='card' && editingTxType==='expense'){
+    // uma parcela por fatura; os centavos que sobram da divisão vão nas primeiras
+    const n = Number($('#txInst').value), first = Number($('#txFirst').value);
+    const cents = Math.round(amount*100), base = Math.floor(cents/n), extra = cents - base*n;
+    const pid = uid(), created = Date.now().toString(36);
+    const parts = Array.from({length:n}, (_,k)=>({id:uid()+k, type:'expense', categoryId:editingTxCat,
+      amount:(base + (k<extra?1:0))/100, date:addMonthsISO(date, k+first), note, createdAt:created,
+      card:true, purchaseId:pid, inst:k+1, insts:n, purchaseTotal:amount, purchaseDate:date}));
+    DB.transactions.push(...parts);
+    writeMany(parts.map(x=>({sub:'tx', id:x.id, data:x})));
+    closeSheet('ovTx');
+    if(n>1 || first) alert(`Compra lançada no cartão: ${n}x de ${fmtBRL(parts[parts.length-1].amount)}, de ${ymLabel(parts[0].date.slice(0,7),true).toLowerCase()} a ${ymLabel(parts[n-1].date.slice(0,7),true).toLowerCase()}. Veja em Lançamentos › Cartão de crédito.`);
+    render();
+    return;
   } else {
     t = {id:uid(), type:editingTxType, categoryId:editingTxCat, amount, date, note, createdAt:Date.now().toString(36)};
     DB.transactions.push(t);
@@ -1311,7 +1486,16 @@ $('#txDelete').onclick=()=>{
     delTx(editingTxId); closeSheet('ovTx'); render();
   }
 };
-$('#fab').onclick=()=>openTxModal(null);
+$('#txDeleteAll').onclick=()=>{
+  if(!canWrite()) return;
+  const parts = purchaseParts(DB.transactions.find(t=>t.id===editingTxId));
+  if(!confirm(`Excluir todas as ${parts.length} parcelas desta compra, inclusive as já pagas?`)) return;
+  const ids = new Set(parts.map(t=>t.id));
+  DB.transactions = DB.transactions.filter(t=>!ids.has(t.id));
+  writeMany(parts.map(t=>({sub:'tx', id:t.id, del:true})));
+  closeSheet('ovTx'); render();
+};
+$('#fab').onclick=()=>openTxModal(null, activeScreen==='card' ? 'card' : 'cash');
 
 /* ---------------- MODAL: categoria ---------------- */
 function openCatModal(cat, forcedType){
