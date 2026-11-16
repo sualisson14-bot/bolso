@@ -7,9 +7,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<meta name="apple-mobile-web-app-title" content="Controle Financeiro">
+<meta name="apple-mobile-web-app-title" content="Gasto Controlado">
 <link rel="manifest" href="manifest.json">
-<title>Controle Financeiro</title>
+<title>Gasto Controlado</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -53,6 +53,12 @@ b,strong{font-weight:600}
 .theme-tg{background:transparent;border:1px solid #3B4143;color:#fff;width:38px;height:38px;border-radius:2px;
   font-size:15px;cursor:pointer;flex:0 0 auto;display:flex;align-items:center;justify-content:center}
 .theme-tg:active{background:#2A2F31}
+.sup-tg{width:auto;padding:0 11px;font-family:'Archivo Narrow',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.supcard{margin:14px;padding:20px 16px;text-align:center}
+.supcard h2{font-family:'Archivo Narrow',sans-serif;font-size:20px;margin:0 0 6px}
+.supcard .num{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;margin:14px 0 4px}
+.btn.wa{background:#1F8A4C;border-color:#1F8A4C;color:#fff;margin-top:14px;text-decoration:none;text-align:center}
+.suplink{display:block;text-align:center;margin-top:14px;font-size:13px;color:var(--accent);font-weight:600;text-decoration:none}
 
 /* ---------- seletor de mês ---------- */
 .monthbar{display:flex;align-items:center;justify-content:center;gap:14px;padding:14px 14px 6px}
@@ -345,7 +351,7 @@ h2.sec:first-child{margin-top:14px}
 <body>
 <div class="authwrap" id="authScreen">
   <div class="authcard">
-    <h1>Controle Financeiro</h1>
+    <h1>Gasto Controlado</h1>
     <p class="hint">Seus lançamentos, sincronizados com segurança entre seus aparelhos.</p>
     <div class="field hidden" id="authNameField"><label>Seu nome</label><input type="text" id="authName" autocomplete="name"></div>
     <div class="field"><label>E-mail</label><input type="email" id="authEmail" autocomplete="username"></div>
@@ -354,6 +360,7 @@ h2.sec:first-child{margin-top:14px}
     <button class="btn pri" id="authSubmit">Entrar</button>
     <button class="btn gh" id="authToggle">Pedir acesso</button>
     <button class="btn gh" id="authForgot" style="border:none;color:var(--accent)">Esqueci minha senha</button>
+    <a class="suplink" data-wa href="#" target="_blank" rel="noopener">Precisa de ajuda? Fale no WhatsApp</a>
   </div>
 </div>
 
@@ -365,6 +372,7 @@ h2.sec:first-child{margin-top:14px}
     <button class="btn pri hidden" id="gateSendVerify">Enviar e-mail de confirmação</button>
     <button class="btn gh" id="gateRecheck">Verificar de novo</button>
     <button class="btn gh" id="gateLogout">Sair</button>
+    <a class="suplink" data-wa href="#" target="_blank" rel="noopener">Falar com o suporte no WhatsApp</a>
   </div>
 </div>
 
@@ -372,8 +380,9 @@ h2.sec:first-child{margin-top:14px}
 
   <div class="top">
     <div style="flex:1">
-      <h1 id="topTitle">Controle Financeiro</h1>
+      <h1 id="topTitle">Gasto Controlado</h1>
     </div>
+    <button class="theme-tg sup-tg" id="supTg">Suporte</button>
     <button class="theme-tg" id="themeTg">◐</button>
   </div>
 
@@ -461,12 +470,25 @@ h2.sec:first-child{margin-top:14px}
   </div>
 
   <!-- ============ AJUSTES ============ -->
+  <!-- ============ SUPORTE ============ -->
+  <div class="screen" id="scr-sup">
+    <div class="card supcard">
+      <h2>Suporte</h2>
+      <p class="hint">Dúvidas, problemas ou sugestões? Chame no WhatsApp que a gente responde.</p>
+      <div class="num">(85) 99962-4711</div>
+      <a class="btn wa" data-wa href="#" target="_blank" rel="noopener">Abrir conversa no WhatsApp</a>
+    </div>
+  </div>
+
   <div class="screen" id="scr-set">
     <h2 class="sec">Conta</h2>
     <div class="pad">
       <p class="hint" id="acctEmail" style="margin:0 0 12px"></p>
       <button class="btn gh" id="btnLogout">Sair da conta</button>
     </div>
+
+    <h2 class="sec">Suporte</h2>
+    <div class="pad"><a class="btn wa" data-wa href="#" target="_blank" rel="noopener" style="margin-top:0">WhatsApp (85) 99962-4711</a></div>
 
     <div id="adminEntry" class="hidden">
       <h2 class="sec">Administração</h2>
@@ -1501,6 +1523,14 @@ $('#txDeleteAll').onclick=()=>{
   writeMany(parts.map(t=>({sub:'tx', id:t.id, del:true})));
   closeSheet('ovTx'); render();
 };
+/* ---------------- suporte ---------------- */
+const SUPPORT_WA = '5585999624711';
+function waLink(){
+  const msg = 'Olá! Preciso de ajuda com o Gasto Controlado.' + (authEmail ? ' Minha conta: '+authEmail : '');
+  return `https://wa.me/${SUPPORT_WA}?text=${encodeURIComponent(msg)}`;
+}
+document.addEventListener('click', e=>{ const a = e.target.closest('[data-wa]'); if(a) a.href = waLink(); }, true);
+$('#supTg').onclick=()=>{ goToScreen('sup'); render(); };
 $('#fab').onclick=()=>openTxModal(null, activeScreen==='card' ? 'card' : 'cash');
 
 /* ---------------- MODAL: categoria ---------------- */
