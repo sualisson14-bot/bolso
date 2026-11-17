@@ -255,6 +255,11 @@ h2.sec:first-child{margin-top:14px}
 .field input[type=text],.field input[type=date],.field input[type=number],.field input[type=email],.field input[type=password],.field input[type=tel]{
   width:100%;padding:11px 12px;border:1px solid var(--rule);border-radius:8px;background:var(--paper);color:var(--ink)}
 .hidden{display:none !important}
+.phonerow{display:flex;gap:8px}
+.phonerow #authDdd{flex:0 0 64px;text-align:center}
+.phonerow #authPhone{flex:1;min-width:0}
+.reqrow .ph{font-size:12.5px;margin-top:2px}
+.reqrow .ph a{color:var(--accent);font-weight:600;text-decoration:none}
 .authwrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--paper)}
 .authcard{width:100%;max-width:340px}
 .authcard h1{font-family:'Archivo Narrow',sans-serif;font-size:24px;font-weight:700;text-align:center;margin:0 0 6px;color:var(--ink)}
@@ -354,6 +359,9 @@ h2.sec:first-child{margin-top:14px}
     <h1>Gasto Controlado</h1>
     <p class="hint">Seus lançamentos, sincronizados com segurança entre seus aparelhos.</p>
     <div class="field hidden" id="authNameField"><label>Seu nome</label><input type="text" id="authName" autocomplete="name"></div>
+    <div class="field hidden" id="authPhoneField"><label>Telefone / WhatsApp</label>
+      <div class="phonerow"><input type="tel" inputmode="numeric" id="authDdd" placeholder="DDD" maxlength="2" autocomplete="tel-area-code">
+      <input type="tel" inputmode="numeric" id="authPhone" placeholder="99999-9999" maxlength="10" autocomplete="tel-local"></div></div>
     <div class="field"><label>E-mail</label><input type="email" id="authEmail" autocomplete="username"></div>
     <div class="field"><label>Senha</label><input type="password" id="authPassword" autocomplete="current-password"></div>
     <p class="hint" id="authMsg" style="display:none"></p>
@@ -1664,23 +1672,34 @@ $('#authToggle').onclick=()=>{
   $('#authSubmit').textContent = authMode==='login' ? 'Entrar' : 'Enviar pedido';
   $('#authToggle').textContent = authMode==='login' ? 'Pedir acesso' : 'Já tenho conta';
   $('#authNameField').classList.toggle('hidden', authMode==='login');
+  $('#authPhoneField').classList.toggle('hidden', authMode==='login');
   $('#authPassword').autocomplete = authMode==='login' ? 'current-password' : 'new-password';
   $('#authMsg').style.display='none';
 };
 
 let pendingSignupName = '';
+let pendingSignupPhone = '';
+/* DDD com 2 dígitos; número com 8 (fixo) ou 9 (celular) dígitos */
+$('#authDdd').addEventListener('input', e=>{ e.target.value = e.target.value.replace(/\D/g,'').slice(0,2); if(e.target.value.length===2) $('#authPhone').focus(); });
+$('#authPhone').addEventListener('input', e=>{
+  const d = e.target.value.replace(/\D/g,'').slice(0,9);
+  e.target.value = d.length>4 ? d.slice(0,d.length-4)+'-'+d.slice(-4) : d;
+});
+function phoneDigits(p){ return String(p||'').replace(/\D/g,''); }
 $('#authSubmit').onclick=async ()=>{
   if(!fb){ showAuthMsg('Ainda conectando ao servidor, aguarde um instante e tente de novo.'); return; }
   const email = $('#authEmail').value.trim();
   const password = $('#authPassword').value;
   const name = $('#authName').value.trim();
   if(authMode==='signup' && !name){ showAuthMsg('Informe seu nome.'); return; }
+  const ddd = $('#authDdd').value, num = phoneDigits($('#authPhone').value);
+  if(authMode==='signup' && (ddd.length!==2 || ddd[0]==='0' || num.length<8)){ showAuthMsg('Informe o DDD e o número de telefone.'); return; }
   if(!email || !password){ showAuthMsg('Preencha e-mail e senha.'); return; }
   $('#authSubmit').disabled = true;
   $('#authMsg').style.display='none';
   try{
     if(authMode==='login') await fb.signInWithEmailAndPassword(fb.auth, email, password);
-    else { pendingSignupName = name; await fb.createUserWithEmailAndPassword(fb.auth, email, password); }
+    else { pendingSignupName = name; pendingSignupPhone = `(${ddd}) ${$('#authPhone').value}`; await fb.createUserWithEmailAndPassword(fb.auth, email, password); }
   }catch(err){
     showAuthMsg(translateAuthError(err.code));
   }
@@ -1793,8 +1812,15 @@ async function checkAccess(user){
   try{ s = await fb.getDocFromServer(ref); }
   catch(e){ s = await fb.getDocFromCache(ref); }
   if(!s.exists()){
-    await fb.setDoc(ref, {email:user.email, name:pendingSignupName || '', status:'pending', requestedAt:Date.now()});
-    pendingSignupName = '';
+    const req = {email:user.email, name:pendingSignupName || '', status:'pending', requestedAt:Date.now()};
+    if(pendingSignupPhone) req.phone = pendingSignupPhone;
+    try{ await fb.setDoc(ref, req); }
+    catch(e){
+      // regras antigas ainda sem o campo phone: o pedido sai sem telefone em vez de falhar
+      if(e.code!=='permission-denied' || !req.phone) throw e;
+      delete req.phone; await fb.setDoc(ref, req);
+    }
+    pendingSignupName = ''; pendingSignupPhone = '';
     return 'pending';
   }
   ownAccess = s.data();
@@ -1887,6 +1913,7 @@ function renderAdmin(){
       <div class="reqrow">
         <div class="nm">${escapeHtml(r.name) || '(sem nome)'}</div>
         <div class="em">${escapeHtml(r.email)}</div>
+        ${r.phone ? `<div class="ph"><a href="https://wa.me/55${phoneDigits(r.phone)}" target="_blank" rel="noopener">${escapeHtml(r.phone)} · WhatsApp</a></div>` : ''}
         <div class="dt">Pedido em ${fmtDate(r.requestedAt)}${r.decidedAt ? ' · decidido em '+fmtDate(r.decidedAt) : ''}</div>
         ${expLine(r)}
         <div class="acts">${withTerm ? termSel : ''}${acts.map(([to,label,cls])=>`<button class="btn ${cls}" data-uid="${r.uid}" data-to="${to}">${label}</button>`).join('')}</div>
