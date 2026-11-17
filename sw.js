@@ -1,6 +1,6 @@
 /* Service worker — cache do app para uso offline.
    Troque CACHE para forçar atualização depois de editar o index.html. */
-const CACHE = 'bolso-v12';
+const CACHE = 'bolso-v13';
 const SHELL = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', e => {

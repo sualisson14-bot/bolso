@@ -260,6 +260,8 @@ h2.sec:first-child{margin-top:14px}
 .phonerow #authPhone{flex:1;min-width:0}
 .reqrow .ph{font-size:12.5px;margin-top:2px}
 .reqrow .ph a{color:var(--accent);font-weight:600;text-decoration:none}
+.reqrow .btn.wa{margin:10px 0 0;min-height:38px;padding:8px;font-size:11.5px}
+.reqrow .btn.wa.sent{background:var(--panel);color:#1F8A4C}
 .authwrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--paper)}
 .authcard{width:100%;max-width:340px}
 .authcard h1{font-family:'Archivo Narrow',sans-serif;font-size:24px;font-weight:700;text-align:center;margin:0 0 6px;color:var(--ink)}
@@ -1820,6 +1822,7 @@ async function checkAccess(user){
       if(e.code!=='permission-denied' || !req.phone) throw e;
       delete req.phone; await fb.setDoc(ref, req);
     }
+    notifyAdmin(req);
     pendingSignupName = ''; pendingSignupPhone = '';
     return 'pending';
   }
@@ -1856,6 +1859,45 @@ $('#gateSendVerify').onclick=async ()=>{
   }catch(e){ showGateMsg(translateAuthError(e.code)); }
 };
 
+/* Aviso de novo cadastro no celular do administrador, pelo app ntfy (tópico privado).
+   Não bloqueia nem atrasa o cadastro se falhar. */
+const NTFY_TOPIC = 'gastocontrolado-fb6f8edf600b';
+function notifyAdmin(req){
+  fetch('https://ntfy.sh/', {method:'POST', body: JSON.stringify({
+    topic: NTFY_TOPIC, title: 'Novo cadastro no Gasto Controlado',
+    message: `${req.name || 'Alguém'} pediu acesso. Abra o painel para aprovar e enviar as boas-vindas.`,
+    tags: ['tada'], click: 'https://www.gastocontrolado.com.br/'
+  })}).catch(()=>{});
+}
+
+/* Mensagem de boas-vindas pronta para enviar pelo WhatsApp a partir do painel */
+function welcomeText(r){
+  const first = (r.name||'').trim().split(/\s+/)[0] || '';
+  const status = r.status==='approved'
+    ? `Seu acesso já está *liberado*! É só entrar em https://www.gastocontrolado.com.br com o e-mail e a senha que você cadastrou.`
+    : `Recebemos seu cadastro e seu acesso já está em análise. Assim que for liberado, é só entrar em https://www.gastocontrolado.com.br com o e-mail e a senha que você cadastrou.`;
+  return `Olá${first ? ', '+first : ''}! 👋
+
+Seja muito bem-vindo(a) ao *Gasto Controlado* 💚
+
+${status}
+
+Com o Gasto Controlado você vai:
+✅ Anotar cada gasto em segundos, direto do celular
+📊 Ver para onde seu dinheiro está indo, por categoria
+🎯 Definir limites mensais e acompanhar antes de estourar
+💳 Controlar as parcelas do cartão de crédito mês a mês
+📈 Comparar seus gastos e receitas entre os meses
+
+💡 *Dica:* no celular, abra o site e toque em *Compartilhar › Adicionar à Tela de Início* para usar como um aplicativo.
+
+Qualquer dúvida, é só responder esta mensagem. Estamos aqui para ajudar!
+
+*Equipe Gasto Controlado*`;
+}
+function welcomedSet(){ try{ return new Set(JSON.parse(localStorage.getItem('gc_welcomed')||'[]')); }catch(e){ return new Set(); } }
+function markWelcomed(uid){ try{ const w = welcomedSet(); w.add(uid); localStorage.setItem('gc_welcomed', JSON.stringify([...w])); }catch(e){} }
+
 /* ---------------- painel de contas ---------------- */
 let adminReqs = [];
 function startAdminListener(gen){
@@ -1890,6 +1932,7 @@ function termEnd(term, from){
 function daysLeft(ms){ return Math.ceil((ms - Date.now())/86400000); }
 function renderAdmin(){
   const now = Date.now();
+  const welcomed = welcomedSet();
   const groupOf = r => r.status==='approved' ? (r.expiresAt && r.expiresAt<=now ? 'expired' : 'approved') : r.status;
   const termSel = `<select aria-label="Prazo">${ACCESS_TERMS.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select>`;
   const groups = [
@@ -1914,11 +1957,13 @@ function renderAdmin(){
         <div class="nm">${escapeHtml(r.name) || '(sem nome)'}</div>
         <div class="em">${escapeHtml(r.email)}</div>
         ${r.phone ? `<div class="ph"><a href="https://wa.me/55${phoneDigits(r.phone)}" target="_blank" rel="noopener">${escapeHtml(r.phone)} · WhatsApp</a></div>` : ''}
+        ${r.phone && r.status!=='rejected' ? `<a class="btn wa${welcomed.has(r.uid)?' sent':''}" data-welcome="${r.uid}" href="https://wa.me/55${phoneDigits(r.phone)}?text=${encodeURIComponent(welcomeText(r))}" target="_blank" rel="noopener">${welcomed.has(r.uid) ? '✓ Boas-vindas enviadas · enviar de novo' : 'Enviar boas-vindas no WhatsApp'}</a>` : ''}
         <div class="dt">Pedido em ${fmtDate(r.requestedAt)}${r.decidedAt ? ' · decidido em '+fmtDate(r.decidedAt) : ''}</div>
         ${expLine(r)}
         <div class="acts">${withTerm ? termSel : ''}${acts.map(([to,label,cls])=>`<button class="btn ${cls}" data-uid="${r.uid}" data-to="${to}">${label}</button>`).join('')}</div>
       </div>`).join('') : `<p class="hint" style="padding:0 14px">Nenhuma.</p>`);
   }).join('');
+  $$('#adminList [data-welcome]').forEach(a=>a.addEventListener('click', ()=>{ markWelcomed(a.dataset.welcome); setTimeout(renderAdmin, 500); }));
   $$('#adminList [data-to]').forEach(b=>b.onclick=()=>{
     const r = adminReqs.find(x=>x.uid===b.dataset.uid);
     const upd = {status:b.dataset.to, decidedAt:Date.now()};
